@@ -2,7 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from .validators import validate_roll_number
-from .constants import Semester, Department, Section
+from .constants import Semester, Department, Section, Designation
 
 class StudentProfile(models.Model):
     id = models.UUIDField(
@@ -19,7 +19,7 @@ class StudentProfile(models.Model):
         max_length=150,
         unique=True,
         validators=[validate_roll_number],
-        help_text="Enter in the format of THA079BEI042 or tha079bei042"
+        help_text="e.g THA079BEI042"
     )
     department = models.CharField(
         max_length=2,
@@ -46,3 +46,36 @@ class StudentProfile(models.Model):
         return f"{self.roll_no} - {self.user.first_name}"
 
 
+class TeacherProfile(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="teacher_profile"
+    )
+    department = models.CharField(
+        max_length=2, 
+        choices=Department.choices,
+        blank=True,
+        null=True
+    )
+    phone_number = models.CharField(max_length=10, blank=True)
+    designation = models.CharField(
+        max_length=10, 
+        choices= Designation.choices,
+        help_text="e.g. Assistant Professor, HOD")
+    
+    is_full_time = models.BooleanField(
+        default=True,
+        verbose_name="Full time"
+        )
+
+    class Meta:
+        indexes = [models.Index(fields=["id"])]
+    
+    def __str__(self):
+        return f"{self.user.username}"

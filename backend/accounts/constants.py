@@ -21,3 +21,21 @@ class Section(models.TextChoices):
     GROUP_B = "B", "Group B"
     GROUP_C = "C", "Group C"
     GROUP_D = "D", "Group D"
+
+class Designation(models.TextChoices):
+    # Leadership
+    HOD = 'HOD', 'Head of Department'
+    PROFESSOR = 'PROF', 'Professor'
+    
+    # Senior Faculty
+    ASSOCIATE_PROF = 'ASSOC', 'Associate Professor'
+    ASSISTANT_PROF = 'ASST', 'Assistant Professor'
+    
+    # Junior / Visiting Faculty
+    LECTURER = 'LECT', 'Lecturer'
+    ADJUNCT_FACULTY = 'ADJ', 'Adjunct Faculty'
+    VISITING_FACULTY = 'VISIT', 'Visiting Faculty'
+    
+    # Research / Support
+    TEACHING_ASSISTANT = 'TA', 'Teaching Assistant'
+    LAB_INSTRUCTOR = 'LAB', 'Lab Instructor'
