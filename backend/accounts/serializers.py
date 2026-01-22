@@ -72,23 +72,45 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data.pop("confirm_password")
         return UserModel.objects.create_user(**validated_data)
     
-class UserDetailsSerializer(serializers.ModelSerializer):
-    """
-    User model w/o password
-    """
-    class Meta:
-        model = UserModel
-        fields = ('id', 'username', 'email', 'first_name', 'last_name')
-        # read_only_fields = ('email', )
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
-        fields = [
+        fields = (
             'id',
             'roll_no',
             'department',
             'current_semester',
             'batch_year',
             'section'
-        ]
+        )
+        read_only_fields = ("roll_no", )
+
+class UserDetailsSerializer(serializers.ModelSerializer):
+    """
+    User model w/o password
+    """
+    students_profile = StudentProfileSerializer()
+    class Meta:
+        model = UserModel
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'students_profile')
+        # read_only_fields = ('email', )
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("students_profile", None)
+        instance = super().update(instance, validated_data)
+        if profile_data:
+            profile_instance = getattr(instance, 'students_profile', None)
+            if profile_instance:
+                profile_serializer = StudentProfileSerializer(
+                    instance=profile_instance,
+                    data=profile_data,
+                    partial=True
+                    )
+            else:
+                profile_serializer = StudentProfileSerializer(data=profile_data)
+
+            if profile_serializer.is_valid(raise_exception=True):
+                profile_serializer.save(user=instance)
+
+        return instance

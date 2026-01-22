@@ -11,7 +11,12 @@ from django.contrib.auth import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .serializers import UserSerializer, LoginSerializer, UserDetailsSerializer
+from .serializers import (
+    UserSerializer, 
+    LoginSerializer, 
+    UserDetailsSerializer, 
+    StudentProfileSerializer,
+)
 
 UserModel = get_user_model()
 
