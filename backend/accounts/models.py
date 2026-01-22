@@ -1,8 +1,14 @@
 import uuid
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+
 from .validators import validate_roll_number
 from .constants import Semester, Department, Section, Designation
+
+
+class User(AbstractUser):
+    is_student = models.BooleanField(default=True)
 
 class StudentProfile(models.Model):
     id = models.UUIDField(
@@ -26,7 +32,6 @@ class StudentProfile(models.Model):
         choices=Department.choices
     )
     current_semester = models.IntegerField(
-        max_length=2,
         choices=Semester.choices,
         default=Semester.SEM_1
     )
