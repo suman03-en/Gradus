@@ -11,7 +11,7 @@ from django.contrib.auth import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
-from .serializers import UserSerializer, LoginSerializer
+from .serializers import UserSerializer, LoginSerializer, UserDetailsSerializer
 
 UserModel = get_user_model()
 
@@ -76,3 +76,21 @@ class LogoutView(APIView):
         response = Response({"details": "Successfully logout."}, status=status.HTTP_200_OK)
 
         return response
+    
+class UserDetailsView(generics.RetrieveUpdateAPIView):
+    """
+    Reads and updates UserModel fields
+    Accepts GET, PUT, PATCH methods.
+
+    Default accepted fields: username, first_name, last_name
+    Default display fields: pk, username, email, first_name, last_name
+    Read-only fields: pk
+
+    Returns UserModel fields.
+    """
+    queryset = UserModel.objects.all()
+    serializer_class = UserDetailsSerializer
+    permission_classes = (IsAuthenticated, )
+
+    def get_object(self):
+        return self.request.user

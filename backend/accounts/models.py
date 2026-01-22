@@ -8,6 +8,11 @@ from .constants import Semester, Department, Section, Designation
 
 
 class User(AbstractUser):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
     is_student = models.BooleanField(default=True)
 
 class StudentProfile(models.Model):
