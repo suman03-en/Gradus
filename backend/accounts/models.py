@@ -3,7 +3,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 
-from .validators import validate_roll_number
+from .validators import validate_roll_number, phone_regex
 from .constants import Semester, Department, Section, Designation
 
 
@@ -73,7 +73,9 @@ class TeacherProfile(models.Model):
         blank=True,
         null=True
     )
-    phone_number = models.CharField(max_length=10, blank=True)
+    phone_number = models.CharField(
+        validators=[phone_regex, ],
+        blank=True)
     designation = models.CharField(
         max_length=10, 
         choices= Designation.choices,
