@@ -3,7 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
-
+from rest_framework.mixins import (
+    RetrieveModelMixin,
+    CreateModelMixin,
+    UpdateModelMixin,
+    DestroyModelMixin
+)
 from django.contrib.auth import (
     login as django_login,
     logout as django_logout,
@@ -11,12 +16,17 @@ from django.contrib.auth import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from .models import (
+    StudentProfile,
+)
 from .serializers import (
     UserSerializer, 
     LoginSerializer, 
     UserDetailsSerializer, 
     StudentProfileSerializer,
+    TeacherProfileSerializer
 )
+
 
 UserModel = get_user_model()
 
@@ -99,3 +109,22 @@ class UserDetailsView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+
+class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+    queryset = StudentProfile.objects.all()
+    serializer_class = StudentProfileSerializer
+    permission_classes = (IsAuthenticated, )
+
+    def get_object(self):
+        return self.request.user.student_profile
+    
+    def get_serializer_class(self):
+        if self.request.user.is_student:
+            return StudentProfileSerializer
+        return TeacherProfileSerializer
+    
+    
+    
+    

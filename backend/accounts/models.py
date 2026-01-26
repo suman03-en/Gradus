@@ -13,7 +13,7 @@ class User(AbstractUser):
         default=uuid.uuid4,
         editable=False
     )
-    is_student = models.BooleanField(default=True)
+    is_student = models.BooleanField(default=True, verbose_name="Are you a student?")
 
 class StudentProfile(models.Model):
     id = models.UUIDField(
@@ -24,7 +24,7 @@ class StudentProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="students_profile"
+        related_name="student_profile"
     )
     roll_no = models.CharField(
         max_length=150,
@@ -40,7 +40,7 @@ class StudentProfile(models.Model):
         choices=Semester.choices,
         default=Semester.SEM_1
     )
-    batch_year = models.PositiveIntegerField()
+    batch_year = models.PositiveIntegerField(null=True, blank=True)
     section = models.CharField(
         max_length=5,
         choices=Section.choices,

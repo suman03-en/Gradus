@@ -1,8 +1,12 @@
+from django.contrib.auth import get_user_model, authenticate
+from django.db import transaction
+
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from rest_framework.exceptions import ValidationError
 
-from .models import StudentProfile
-from django.contrib.auth import get_user_model, authenticate
+from .models import StudentProfile, TeacherProfile
+
 
 UserModel = get_user_model()
 
@@ -49,6 +53,7 @@ class UserSerializer(serializers.ModelSerializer):
         style={'input_type':'password'},
         write_only=True
     )
+    is_student = serializers.BooleanField()
     class Meta:
         model = UserModel
         fields = [
@@ -57,7 +62,8 @@ class UserSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'password',
-            'confirm_password'
+            'confirm_password',
+            'is_student',
         ]
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -70,7 +76,13 @@ class UserSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         validated_data.pop("confirm_password")
-        return UserModel.objects.create_user(**validated_data)
+        with transaction.atomic():
+            user = UserModel.objects.create_user(**validated_data)
+            if user.is_student:
+                StudentProfile.objects.create(user=user)
+            else:
+                TeacherProfile.objects.create(user=user)
+        return user
     
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -84,33 +96,32 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'batch_year',
             'section'
         )
-        read_only_fields = ("roll_no", )
+
+class TeacherProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherProfile
+        fields = (
+            'department',
+            'phone_number',
+            'designation',
+            'is_full_time',
+        )
 
 class UserDetailsSerializer(serializers.ModelSerializer):
     """
     User model w/o password
     """
-    students_profile = StudentProfileSerializer()
+    profile = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = UserModel
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'students_profile')
-        # read_only_fields = ('email', )
-
-    def update(self, instance, validated_data):
-        profile_data = validated_data.pop("students_profile", None)
-        instance = super().update(instance, validated_data)
-        if profile_data:
-            profile_instance = getattr(instance, 'students_profile', None)
-            if profile_instance:
-                profile_serializer = StudentProfileSerializer(
-                    instance=profile_instance,
-                    data=profile_data,
-                    partial=True
-                    )
-            else:
-                profile_serializer = StudentProfileSerializer(data=profile_data)
-
-            if profile_serializer.is_valid(raise_exception=True):
-                profile_serializer.save(user=instance)
-
-        return instance
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'profile')
+    
+    def get_profile(self, obj):
+        if hasattr(obj, 'student_profile'):
+            return StudentProfileSerializer(obj.student_profile).data
+        
+        if hasattr(obj, "teacher_profile"):
+            return TeacherProfileSerializer(obj.teacher_profile).data
+        
+        return None
+        
