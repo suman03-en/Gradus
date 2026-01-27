@@ -110,7 +110,13 @@ class UserDetailsView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-
+class UserProfileDetailsView(generics.RetrieveAPIView):
+    """
+    General class for just viewing the profile of any user[student, teacher]
+    """
+    queryset = UserModel.objects.all()
+    serializer_class = UserDetailsSerializer
+    lookup_field = "username"
 
 class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     queryset = StudentProfile.objects.all()
