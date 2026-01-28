@@ -6,7 +6,7 @@ from rest_framework import permissions
 
 from .models import Classroom
 from .serializers import ClassroomSerializer, InviteCodeSerializer
-from .permissions import IsTeacherOrReadOnly
+from .permissions import IsTeacherOrReadOnly, HasJoinedOrIsCreator
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
     """
@@ -26,7 +26,7 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_student:
             return user.joined_classrooms
-        return self.queryset.filter(created_by = user)
+        return super().get_queryset().filter(created_by = user)
     
     def get_serializer_context(self):
         """
@@ -40,6 +40,15 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         return serializer.save(created_by=self.request.user)
     
+
+class ClassroomDetailView(generics.RetrieveAPIView):
+    queryset = Classroom.objects.all()
+    serializer_class = ClassroomSerializer
+    permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
+    lookup_field = "id"
+
+
+
 class ClassroomJoinView(views.APIView):
     permission_classes = [permissions.IsAuthenticated, ]
     def post(self, request):

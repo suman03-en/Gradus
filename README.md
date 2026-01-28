@@ -11,8 +11,10 @@ Gradus - Internal Mark Evaluation System is website for tracking and maintaining
 
 1/27
 1.Add the url to view the profile of any user: user/<username> -> just retrieve only ✅
-2. Teacher can edit, update and delete the classrooms :
+2. Teacher can edit, update and delete the classrooms :(pending)
  2.1.Notify the students if the classroom is deleted so that they can download the important file.
-3.Students can join the classrooms but can't leave after joining .
+3.Students can join the classrooms but can't leave after joining .(tick)
 4. Refactor the classroom join view (tick)
+5. View the classroom details (tick)
+
 

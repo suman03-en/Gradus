@@ -12,14 +12,14 @@ class ClassroomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Classroom
         fields = (
+            "id",
             "name",
             "description",
             "created_by",
             "invite_code",
+            "created_at",
             "students",
-            "created_at"
         )
 
 class InviteCodeSerializer(serializers.Serializer):
     invite_code = serializers.CharField()
-    
