@@ -26,5 +26,11 @@ class InviteCodeSerializer(serializers.Serializer):
 
 class AddStudentSerializer(serializers.Serializer):
     """Teacher add students to classrooms by roll_no of students"""
-    roll_no = serializers.CharField(required=True)
-    
+    roll_no = serializers.CharField(required=False)
+    roll_nos = serializers.ListField(
+        child=serializers.CharField(),
+        max_length=50,
+        required=False,
+        allow_empty = True
+    )
+    roll_no_range = serializers.CharField(required=False)

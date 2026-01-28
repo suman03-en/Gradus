@@ -83,11 +83,12 @@ class ClassroomJoinView(views.APIView):
         )
     
     
-class ClassroomAddStudentView(views.APIView):
+class ClassroomAddStudentView(generics.GenericAPIView):
     permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed)
+    serializer_class = AddStudentSerializer
 
-    def post(self, request, *args, **kwargs):
-        serializer = AddStudentSerializer(data=request.data)
+    def post(self, request, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         roll_no = serializer.validated_data["roll_no"]
         student_profile = get_object_or_404(

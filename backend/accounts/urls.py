@@ -8,6 +8,7 @@ from .views import (
     ProfileRetrieveUpdateView,
 )
 
+
 urlpatterns = [
     path("register/",RegisterUserAPIView.as_view()),
     path("login/", LoginView.as_view()),
