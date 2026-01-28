@@ -23,3 +23,8 @@ class ClassroomSerializer(serializers.ModelSerializer):
 
 class InviteCodeSerializer(serializers.Serializer):
     invite_code = serializers.CharField()
+
+class AddStudentSerializer(serializers.Serializer):
+    """Teacher add students to classrooms by roll_no of students"""
+    roll_no = serializers.CharField(required=True)
+    

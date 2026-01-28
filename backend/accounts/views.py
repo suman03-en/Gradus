@@ -3,12 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
-from rest_framework.mixins import (
-    RetrieveModelMixin,
-    CreateModelMixin,
-    UpdateModelMixin,
-    DestroyModelMixin
-)
+
 from django.contrib.auth import (
     login as django_login,
     logout as django_logout,
@@ -33,6 +28,7 @@ UserModel = get_user_model()
 class RegisterUserAPIView(generics.CreateAPIView):
     queryset = UserModel.objects.all()
     serializer_class = UserSerializer
+    permission_classes = (AllowAny, )
 
 
 class LoginView(generics.GenericAPIView):
@@ -135,5 +131,7 @@ class ProfileRetrieveUpdateView(generics.CreateAPIView, generics.RetrieveUpdateA
             return StudentProfileSerializer
         return TeacherProfileSerializer
 
-    
-    
+
+
+
+

@@ -5,8 +5,14 @@ from rest_framework import status
 from rest_framework import permissions
 
 from .models import Classroom
-from .serializers import ClassroomSerializer, InviteCodeSerializer
+from .serializers import (
+    ClassroomSerializer, 
+    InviteCodeSerializer, 
+    AddStudentSerializer
+)
 from .permissions import IsTeacherOrReadOnly, HasJoinedOrIsCreator
+from accounts.permissions import IsTeacherOrNotAllowed
+from accounts.models import StudentProfile
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
     """
@@ -46,6 +52,7 @@ class ClassroomDetailView(generics.RetrieveAPIView):
     serializer_class = ClassroomSerializer
     permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
     lookup_field = "id"
+    lookup_url_kwarg = "uuid"
 
 
 
@@ -74,3 +81,37 @@ class ClassroomJoinView(views.APIView):
             {"detail": "Successfully joined the classroom"},
             status=status.HTTP_200_OK
         )
+    
+    
+class ClassroomAddStudentView(views.APIView):
+    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed)
+
+    def post(self, request, *args, **kwargs):
+        serializer = AddStudentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        roll_no = serializer.validated_data["roll_no"]
+        student_profile = get_object_or_404(
+            StudentProfile,
+            roll_no=roll_no
+        )
+        student = student_profile.user
+        classroom_id = kwargs["uuid"]
+        classroom = get_object_or_404(
+            Classroom,
+            id=classroom_id,
+            is_active=True
+        )
+        if classroom.students.filter(id=student.id).exists():
+            return Response(
+                {"detail": "Student with this roll_no has already joined this classroom"},
+                status=status.HTTP_200_OK
+            )
+        classroom.students.add(student)
+
+        return Response(
+            {"detail": "Successfully added to the classroom"},
+            status=status.HTTP_200_OK
+        )
+        
+
+

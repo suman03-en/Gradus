@@ -111,7 +111,7 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     """
     User model w/o password
     """
-    profile = serializers.SerializerMethodField(read_only=True)
+    profile = serializers.SerializerMethodField()
     class Meta:
         model = UserModel
         fields = ('id', 'username', 'email', 'first_name', 'last_name', 'profile')
@@ -124,4 +124,9 @@ class UserDetailsSerializer(serializers.ModelSerializer):
             return TeacherProfileSerializer(obj.teacher_profile).data
         
         return None
+    
+
+
+    
+
         
