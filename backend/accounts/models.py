@@ -29,6 +29,8 @@ class StudentProfile(models.Model):
     roll_no = models.CharField(
         max_length=150,
         unique=True,
+        blank=True,
+        null=True,
         validators=[validate_roll_number],
         help_text="e.g THA079BEI042"
     )

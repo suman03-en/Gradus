@@ -19,3 +19,7 @@ class ClassroomSerializer(serializers.ModelSerializer):
             "students",
             "created_at"
         )
+
+class InviteCodeSerializer(serializers.Serializer):
+    invite_code = serializers.CharField()
+    

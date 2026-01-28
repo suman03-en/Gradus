@@ -112,13 +112,13 @@ class UserDetailsView(generics.RetrieveUpdateAPIView):
 
 class UserProfileDetailsView(generics.RetrieveAPIView):
     """
-    General class for just viewing the profile of any user[student, teacher]
+    General class for just viewing the profile of any user[student, teachers]
     """
     queryset = UserModel.objects.all()
     serializer_class = UserDetailsSerializer
     lookup_field = "username"
 
-class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+class ProfileRetrieveUpdateView(generics.CreateAPIView, generics.RetrieveUpdateAPIView):
     queryset = StudentProfile.objects.all()
     permission_classes = (IsAuthenticated, )
 
@@ -134,7 +134,6 @@ class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
         if self.request.user.is_student:
             return StudentProfileSerializer
         return TeacherProfileSerializer
-    
-    
+
     
     

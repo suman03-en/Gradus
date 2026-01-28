@@ -1,8 +1,11 @@
-from rest_framework import generics
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, views
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework import permissions
 
 from .models import Classroom
-from .serializers import ClassroomSerializer
+from .serializers import ClassroomSerializer, InviteCodeSerializer
 from .permissions import IsTeacherOrReadOnly
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
@@ -37,4 +40,28 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         return serializer.save(created_by=self.request.user)
     
-    
+class ClassroomJoinView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated, ]
+    def post(self, request):
+        serializer = InviteCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        invite_code = serializer.validated_data.get("invite_code")  
+
+        classroom = get_object_or_404(
+            Classroom,
+            invite_code=invite_code,
+            is_active=True
+        )
+
+        if classroom.students.filter(id=request.user.id).exists():
+            return Response(
+                {"detail": "You have already joined this classroom"},
+                status=status.HTTP_200_OK
+            )
+        
+        classroom.students.add(request.user)
+
+        return Response(
+            {"detail": "Successfully joined the classroom"},
+            status=status.HTTP_200_OK
+        )
