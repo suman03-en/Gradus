@@ -1,3 +1,4 @@
+import re
 import string
 import random
 
@@ -8,4 +9,12 @@ def generate_classroom_code():
     part2 = ''.join(random.choices(chars, k=3))
     part3 = ''.join(random.choices(chars, k=2))
     return f"{part1}-{part2}-{part3}"
+
+
+def expand_roll_range(range_str):
+    ROLL_RANGE_RE = re.compile(
+        r"([A-Z]{3}\d{3,5}[A-Z]{3,5})(\d{3})-([A-Z]{3}\d{3,5}[A-Z]{3,5})"
+    )
+    match = ROLL_RANGE_RE.match(range_str.strip())
+
     

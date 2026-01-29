@@ -20,4 +20,6 @@ Gradus - Internal Mark Evaluation System is website for tracking and maintaining
 
 GET /api/v1/accounts/students?search=<q> → returns a slim list of students (id, username, roll_no, name). Supports search by roll_no/username/name.
 
-POST /api/v1/classrooms/<id>/students/ with body { roll_no: "THA079BEI042" } (or { user_id: "<uuid>" }) → adds that student if found. Backend validates role (student only), avoids duplicates, and returns 200/201 with classroom info.
+POST /api/v1/classrooms/<id>/students/ with body with 3 ways to add students
+1. Bulk with the list of roll no
+2. With the valid range of roll number

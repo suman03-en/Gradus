@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Classroom
 from accounts.models import User
+from accounts.validators import validate_roll_number
 
 class StudentForeignKey(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
@@ -26,11 +27,7 @@ class InviteCodeSerializer(serializers.Serializer):
 
 class AddStudentSerializer(serializers.Serializer):
     """Teacher add students to classrooms by roll_no of students"""
-    roll_no = serializers.CharField(required=False)
-    roll_nos = serializers.ListField(
-        child=serializers.CharField(),
-        max_length=50,
+    roll_no = serializers.CharField(
         required=False,
-        allow_empty = True
-    )
-    roll_no_range = serializers.CharField(required=False)
+        validators = [validate_roll_number])
+
