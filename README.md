@@ -1,25 +1,29 @@
-Gradus - Internal Mark Evaluation System is website for tracking and maintaining the students internal marks . <br>
+# Gradus - Internal Mark Evaluation System
 
-#tasks to do
+Gradus is a web-based system designed for tracking and maintaining students' internal marks efficiently.
 
-1. add logout view
-2. edit or add profile details as per teacher or students
- logic : 
- how to know either user is student or teacher
- 1.By adding the field "is_student" in User by overriding the abstractuser class
-    2. Giving two options while login, login as teacher or students and set context <br>
+## Tasks Completed
 
-1/27
-1.Add the url to view the profile of any user: user/<username> -> just retrieve only ✅
-2. Teacher can edit, update and delete the classrooms :(pending)
- 2.1.Notify the students if the classroom is deleted so that they can download the important file.
-3.Students can join the classrooms but can't leave after joining .(tick)
-4. Refactor the classroom join view (tick)
-5. View the classroom details (tick)
-6. Add students by teacher with roll no or username.
+1. Logout view added.
+2. User profile editing/adding based on role (teacher or student) implemented.
 
-GET /api/v1/accounts/students?search=<q> → returns a slim list of students (id, username, roll_no, name). Supports search by roll_no/username/name.
+   * Role identified using `is_student` field in the User model (overriding AbstractUser).
+3. Profile retrieval URL implemented: `user/<username>` (read-only).
+4. Teacher classroom management pending (edit, update, delete).
 
-POST /api/v1/classrooms/<id>/students/ with body with 3 ways to add students
-1. Bulk with the list of roll no
-2. With the valid range of roll number
+   * Student notifications on classroom deletion still pending.
+5. Students can join classrooms but cannot leave after joining.
+6. Classroom join view refactored.
+7. Classroom details view implemented.
+8. Teachers can add students by roll number.
+
+## Remaining Tasks
+
+1. Implement features for creating various tasks, assignments, offline assessments, tutorials, and attendance management (daily, bulk, or marks assignment).
+2. Allow students to view and submit tasks online.
+3. Allow students to view marks received for tasks.
+4. Implement dashboard to show total marks or percentage gains per classroom.
+
+## Notes
+
+* Each classroom is associated with a single subject.
