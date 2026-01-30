@@ -2,7 +2,6 @@ from django.contrib.auth import get_user_model, authenticate
 from django.db import transaction
 
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 from rest_framework.exceptions import ValidationError
 
 from .models import StudentProfile, TeacherProfile

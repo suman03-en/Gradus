@@ -11,6 +11,7 @@ from django.contrib.auth import (
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
 
 from .models import (
     StudentProfile,
@@ -47,6 +48,7 @@ class LoginView(generics.GenericAPIView):
 
     def login(self):
         self.user = self.serializer.validated_data['user']
+        self.token = None
 
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             self.process_login()
@@ -59,17 +61,22 @@ class LoginView(generics.GenericAPIView):
             )
         self.serializer.is_valid(raise_exception=True)
         self.login()
+        
+        data = {
+            "detail": "Successfully logged in."
+        }
 
-        response = Response({"details": "Successfully logged in."}, status=status.HTTP_200_OK)
+        if self.token:
+            data["token"] = self.token.key
+
+        response = Response(data, status=status.HTTP_200_OK)
         
         return response
 
         
 class LogoutView(APIView):
     """
-    Calls Django logout method
-
-    Accepts/Returns nothing.
+        For session authentication, call django logout.
     """
     permission_classes = (IsAuthenticated, )
 
@@ -78,17 +85,14 @@ class LogoutView(APIView):
         return self.logout(request)
     
     def logout(self, request):
-        """
-        For token authentication, delete the token .
-        and for session, call the django logout method.
-        """
+
         if getattr(settings, 'REST_SESSION_LOGIN', True):
             django_logout(request)
 
-        response = Response({"details": "Successfully logout."}, status=status.HTTP_200_OK)
+        response = Response({"detail": "Successfully logout."}, status=status.HTTP_200_OK)
 
         return response
-    
+ 
 class UserDetailsView(generics.RetrieveUpdateAPIView):
     """
     Reads and updates UserModel fields
