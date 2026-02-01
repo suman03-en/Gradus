@@ -7,6 +7,11 @@ class IsTaskCreatorOrClassroomStudent(permissions.BasePermission):
         - Read: student must be enrolled in classroom OR teacher must be task creator
         - Update/Delete: only task creator
     """
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return not request.user.is_student
+
     def has_object_permission(self, request, view, obj):
         user = request.user
         print(obj.created_by)
