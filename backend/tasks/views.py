@@ -1,9 +1,12 @@
 from django.shortcuts import get_object_or_404
 
 from rest_framework import generics
+from rest_framework import permissions
 from .models import Task
 from .serializers import TaskSerializer
+from .constants import TaskStatus
 from classrooms.permissions import IsTeacherOrReadOnly
+from .permissions import IsTaskCreatorOrClassroomStudent
 from classrooms.models import Classroom
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -17,7 +20,8 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         classroom = self.get_classroom()
         queryset = Task.objects.filter(
-            classroom=classroom
+            classroom=classroom,
+            status=TaskStatus.PUBLISHED
         )
         return queryset
 
@@ -36,4 +40,20 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
         context["classroom"] = self.get_classroom()
         return context
     
+class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTaskCreatorOrClassroomStudent]
+    lookup_field = "id"
+    lookup_url_kwarg = "uuid"
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_student:
+            return Task.objects.filter(
+                classroom__students=user
+            )
+        return Task.objects.filter(created_by=self.request.user)
+
+
 
