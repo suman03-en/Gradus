@@ -2,8 +2,12 @@ from django.shortcuts import get_object_or_404
 
 from rest_framework import generics
 from rest_framework import permissions
-from .models import Task
-from .serializers import TaskSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import Task, TaskSubmission
+from .serializers import (
+    TaskSerializer,
+    TaskSubmissionSerializer
+)
 from .constants import TaskStatus
 from classrooms.permissions import IsTeacherOrReadOnly
 from .permissions import IsTaskCreatorOrClassroomStudent
@@ -55,5 +59,25 @@ class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
             )
         return Task.objects.filter(created_by=self.request.user)
 
+
+class TaskSubmissionAPIView(generics.CreateAPIView):
+    serializer_class = TaskSubmissionSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    lookup_field = "id"
+    lookup_url_kwarg = "uuid"
+
+    def get_queryset(self):
+        return TaskSubmission.objects.all()
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        task_id = self.kwargs["uuid"]
+        task = generics.get_object_or_404(
+            Task,
+            id=task_id
+        )
+        context["task"]=task
+        context["user"] = self.request.user
+        return context
 
 

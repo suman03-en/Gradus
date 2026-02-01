@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Task, TaskSubmission
 
 class TaskSerializer(serializers.ModelSerializer):
     
@@ -22,4 +22,23 @@ class TaskSerializer(serializers.ModelSerializer):
         validated_data.update(extra_data)
         return super().create(validated_data)
     
-    
+
+class TaskSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model= TaskSubmission
+        fields = (
+            "id",
+            "task",
+            "student", 
+            "uploaded_file", "submitted_at"
+        )
+        read_only_fields = (
+            "id",
+            "task",
+            "student",
+            "submitted_at"
+        )
+    def create(self, validated_data):
+        validated_data["task"] = self.context["task"]
+        validated_data["student"] = self.context["user"]
+        return super().create(validated_data)
