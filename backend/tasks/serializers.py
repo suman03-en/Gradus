@@ -38,7 +38,15 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
             "student",
             "submitted_at"
         )
-    def create(self, validated_data):
-        validated_data["task"] = self.context["task"]
-        validated_data["student"] = self.context["user"]
-        return super().create(validated_data)
+
+    def validate(self, attrs):
+        task = self.context["task"]
+        student = self.context["user"]
+        if self.Meta.model.objects.filter(task=task, student=student).exists():
+            raise serializers.ValidationError({
+            "submission_error": "You can't submit more than once for the same task."
+        })
+        attrs["task"] = task
+        attrs["student"] = student
+        return attrs
+    

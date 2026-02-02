@@ -10,7 +10,7 @@ from .serializers import (
 )
 from .constants import TaskStatus
 from classrooms.permissions import IsTeacherOrReadOnly
-from .permissions import IsTaskCreatorOrClassroomStudent
+from .permissions import IsTaskCreatorOrClassroomStudent, IsStudentForWrite, CanViewSubmission
 from classrooms.models import Classroom
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -60,24 +60,33 @@ class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         return Task.objects.filter(created_by=self.request.user)
 
 
-class TaskSubmissionAPIView(generics.CreateAPIView):
+class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = TaskSubmissionSerializer
     parser_classes = [MultiPartParser, FormParser]
+    permission_classes = (permissions.IsAuthenticated, IsStudentForWrite, CanViewSubmission)
     lookup_field = "id"
     lookup_url_kwarg = "uuid"
 
-    def get_queryset(self):
-        return TaskSubmission.objects.all()
-    
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
+    def get_task(self):
+        #returns the current task , using task_id from url path
         task_id = self.kwargs["uuid"]
         task = generics.get_object_or_404(
             Task,
-            id=task_id
+            id=task_id            
         )
+        return task
+    
+    def get_queryset(self):
+        if self.request.user.is_student:
+            return TaskSubmission.objects.filter(task=self.get_task(), student=self.request.user)
+        return TaskSubmission.objects.filter(task=self.get_task(), task__created_by=self.request.user)
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        task = self.get_task()
         context["task"]=task
         context["user"] = self.request.user
         return context
+    
 
 
