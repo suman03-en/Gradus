@@ -1,5 +1,9 @@
 from rest_framework import permissions
 
+class IsCreator(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.created_by == request.user
+
 class IsStudent(permissions.BasePermission):
     message = "Student are only allowed."
     def has_permission(self, request, view):

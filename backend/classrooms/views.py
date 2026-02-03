@@ -11,7 +11,7 @@ from .serializers import (
     AddStudentSerializer
 )
 from .permissions import HasJoinedOrIsCreator
-from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly
+from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly, IsCreator
 from accounts.models import StudentProfile
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
@@ -86,7 +86,7 @@ class ClassroomJoinView(generics.GenericAPIView):
     
     
 class ClassroomAddStudentView(generics.GenericAPIView):
-    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed)
+    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed, IsCreator)
     serializer_class = AddStudentSerializer
 
     def post(self, request, **kwargs):
