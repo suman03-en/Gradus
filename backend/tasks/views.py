@@ -9,8 +9,8 @@ from .serializers import (
     TaskSubmissionSerializer
 )
 from .constants import TaskStatus
-from classrooms.permissions import IsTeacherOrReadOnly
-from .permissions import IsTaskCreatorOrClassroomStudent, IsStudentForWrite, CanViewSubmission
+from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly
+from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission
 from classrooms.models import Classroom
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -45,7 +45,6 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
         return context
     
 class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated, IsTaskCreatorOrClassroomStudent]
     lookup_field = "id"
@@ -63,7 +62,7 @@ class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = TaskSubmissionSerializer
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = (permissions.IsAuthenticated, IsStudentForWrite, CanViewSubmission)
+    permission_classes = (permissions.IsAuthenticated, IsStudentOrReadOnly, CanViewTaskSubmission)
     lookup_field = "id"
     lookup_url_kwarg = "uuid"
 

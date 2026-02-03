@@ -10,8 +10,8 @@ from .serializers import (
     InviteCodeSerializer, 
     AddStudentSerializer
 )
-from .permissions import IsTeacherOrReadOnly, HasJoinedOrIsCreator
-from accounts.permissions import IsTeacherOrNotAllowed
+from .permissions import HasJoinedOrIsCreator
+from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly
 from accounts.models import StudentProfile
 
 class ClassroomListCreateView(generics.ListCreateAPIView):

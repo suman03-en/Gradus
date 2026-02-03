@@ -7,6 +7,9 @@ class IsTaskCreatorOrClassroomStudent(permissions.BasePermission):
         - Read: student must be enrolled in classroom OR teacher must be task creator
         - Update/Delete: only task creator
     """
+
+    message = "Student enrolled in classroom or creator of task are only allowed."
+    
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
@@ -28,16 +31,8 @@ class IsTaskCreatorOrClassroomStudent(permissions.BasePermission):
         # Only task creator can update/delete
         return obj.created_by == user
     
-class IsStudentForWrite(permissions.BasePermission):
-    message = "Only students can submit or modify task submissions."
-
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return request.user.is_student
-    
-class CanViewSubmission(permissions.BasePermission):
-    message = "You do not have permission to view this submission."
+class CanViewTaskSubmission(permissions.BasePermission):
+    message = "Student who submitted task or creator of task can only view tasks."
 
     def has_object_permission(self, request, view, obj):
         if request.method not in permissions.SAFE_METHODS:
