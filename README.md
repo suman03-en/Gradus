@@ -20,9 +20,9 @@ Gradus is a web-based system designed for tracking and maintaining students' int
 10. Allow students to view tasks availabe in classroom.
 11. Retrieve , Update and Delete the tasks with strict permissions.
 12.  ability to  submit tasks if mode is online.
+13. Add strict permissions on TaskSubmissionAPIView
 
 ## Remaining Tasks
-1. Add strict permissions on TaskSubmissionAPIView
 2. Allow students to view marks received for tasks.
 3.  attendance management (daily, bulk, or marks assignment).
 4. Implement dashboard to show total marks or percentage gains per classroom.
