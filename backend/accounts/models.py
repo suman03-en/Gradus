@@ -1,6 +1,7 @@
 import uuid
 import secrets
 import string
+from datetime import datetime, timezone
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -97,6 +98,9 @@ class TeacherProfile(models.Model):
         return f"{self.user.username}"
 
 class OTPToken(models.Model):
+    """
+    Class used to store the token for the password reset
+    """
     id = models.UUIDField(
         primary_key=True,
         default= uuid.uuid4,
@@ -110,8 +114,24 @@ class OTPToken(models.Model):
     token = models.CharField(max_length=5)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    
+    def is_valid(self):
+        token_lifespan = 5 * 60  # min
+        now = datetime.now(timezone.utc)
+        time_diff = now - self.created_at
+        time_diff = time_diff.total_seconds()
+        if time_diff >= token_lifespan:
+            return False
+        return True
+    
+    def set_password(self, password):
+        self.user.set_password(password)
+        self.user.save()
+
     @staticmethod
     def generate_token(length):
         token = "".join(secrets.choice(string.digits) for _ in range(length))
         return token
+
+
 
