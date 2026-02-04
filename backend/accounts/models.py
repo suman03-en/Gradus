@@ -1,4 +1,6 @@
 import uuid
+import secrets
+import string
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -93,3 +95,23 @@ class TeacherProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.username}"
+
+class OTPToken(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default= uuid.uuid4,
+        editable=False
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='token'
+    )
+    token = models.CharField(max_length=5)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def generate_token(length):
+        token = "".join(secrets.choice(string.digits) for _ in range(length))
+        return token
+
