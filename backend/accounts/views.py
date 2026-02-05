@@ -92,6 +92,7 @@ class LogoutView(APIView):
         response = Response({"detail": "Successfully logout."}, status=status.HTTP_200_OK)
 
         return response
+    
  
 class UserDetailsView(generics.RetrieveUpdateAPIView):
     """

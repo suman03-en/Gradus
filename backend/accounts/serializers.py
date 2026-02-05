@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from .models import StudentProfile, TeacherProfile
+from .models import StudentProfile, TeacherProfile, OTPToken
 
 
 UserModel = get_user_model()
@@ -124,7 +124,25 @@ class UserDetailsSerializer(serializers.ModelSerializer):
         
         return None
     
+class OTPTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OTPToken
+        fields = (
+            'id',
+            'user',
+            'token',
+            'created_at'
+        )
+        read_only_fields = ("id", "user", "created_at")
 
+    def create(self, validated_data):
+        validated_data["user"] = self.request.user
+        return super().create(**validated_data)
+
+
+class CreatePasswordFromResetOTPSerializer(serializers.Serializer):
+    otp = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
 
     
 
