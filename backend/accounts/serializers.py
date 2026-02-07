@@ -135,13 +135,18 @@ class OTPTokenSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "user", "created_at")
 
-    def create(self, validated_data):
-        validated_data["user"] = self.request.user
-        return super().create(**validated_data)
 
+
+class EnterEmailForPasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+class EnterOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(required=True)
 
 class CreatePasswordFromResetOTPSerializer(serializers.Serializer):
-    otp = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    reset_token = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
 
     

@@ -1,3 +1,5 @@
+import secrets
+
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -13,13 +15,20 @@ from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
 
+from django.core.mail import send_mail
+
 from .models import (
     StudentProfile,
+    OTPToken
 )
 from .serializers import (
     UserSerializer, 
     LoginSerializer, 
-    UserDetailsSerializer, 
+    UserDetailsSerializer,
+    EnterEmailForPasswordResetSerializer,
+    OTPTokenSerializer,
+    EnterOTPSerializer,
+    CreatePasswordFromResetOTPSerializer,
     StudentProfileSerializer,
     TeacherProfileSerializer
 )
@@ -136,6 +145,139 @@ class ProfileRetrieveUpdateView(generics.CreateAPIView, generics.RetrieveUpdateA
         if self.request.user.is_student:
             return StudentProfileSerializer
         return TeacherProfileSerializer
+
+class PasswordResetEmailView(generics.GenericAPIView):
+    serializer_class = EnterEmailForPasswordResetSerializer
+    permission_classes = [AllowAny, ]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data.get('email')
+        user = UserModel.objects.filter(email=email)[0]
+        if user:
+            token = OTPToken.generate_token(5)
+            otpserializer = OTPTokenSerializer(data={"token": token})
+            if otpserializer.is_valid():
+                otpserializer.save(user=user)
+            send_mail(
+                "Password reset otp",
+                f"password reset token : {token}",
+                "from@example.com",
+                [email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {"detail": "If an account exists with this email, a reset code has been sent."},
+            status=status.HTTP_200_OK
+        )
+            
+class VerifyOTPView(APIView):
+    """
+    step2: User enters email and OTP to verify
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = EnterOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        otp = serializer.validated_data["otp"]
+
+        try:
+            user = UserModel.objects.get(email=email)
+            otp_token = OTPToken.objects.filter(user=user).order_by('-created_at').first()
+
+            if not otp_token.is_valid():
+                #if otp is expired then delete it.
+                otp_token.delete()
+                return Response(
+                    {'error': 'OTP has expired. Please request a new one.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if otp == otp_token.token:
+                reset_token = OTPToken.generate_token(5)
+                otp_token.token = reset_token
+                otp_token.save()
+                return Response(
+                    {
+                        'message': 'OTP verified successfully.',
+                        'reset_token': reset_token
+                    },
+                    status=status.HTTP_200_OK
+                )
+        except UserModel.DoesNotExist:
+            return Response(
+                {
+                    'error': 'Invalid credentails.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+class ResetPasswordView(APIView):
+    """
+    step 3: User sets new password using verified reset token
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CreatePasswordFromResetOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        reset_token = serializer.validated_data["reset_token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            user = UserModel.objects.get(email=email)
+            otp_token = OTPToken.objects.filter(user=user).filter(token=reset_token).first()
+
+            if not otp_token:
+                return Response(
+                    {'error': 'Invalid or expired reset token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not otp_token.is_valid():
+                otp_token.delete()
+                return Response(
+                    {'error': 'Reset token has expired. Please start over.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            print(reset_token, otp_token.token)
+            if reset_token != otp_token.token:
+                return Response(
+                    {'error': 'Invalid reset token.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.set_password(new_password)
+            user.save()
+            otp_token.delete()
+            try:
+                send_mail(
+                    subject='Password Reset Successful',
+                    message='Your password has been successfully reset.\n\n'
+                            'If you did not perform this action, please contact support immediately.',
+                    from_email="from@example.com",
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass 
+            return Response(
+                {
+                    "detail": "Password successfully changed."
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except UserModel.DoesNotExist:
+            return Response(
+                {'error': 'Invalid credentials.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+  
+
 
 
 

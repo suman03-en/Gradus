@@ -100,6 +100,7 @@ class TeacherProfile(models.Model):
 class OTPToken(models.Model):
     """
     Class used to store the token for the password reset
+    user field is kun user ko lagi token generate gareko
     """
     id = models.UUIDField(
         primary_key=True,
@@ -116,7 +117,7 @@ class OTPToken(models.Model):
 
     
     def is_valid(self):
-        token_lifespan = 5 * 60  # min
+        token_lifespan = 10 * 60  # min
         now = datetime.now(timezone.utc)
         time_diff = now - self.created_at
         time_diff = time_diff.total_seconds()
