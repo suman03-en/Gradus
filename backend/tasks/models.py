@@ -53,6 +53,11 @@ class Task(models.Model):
     
 
 class TaskSubmission(models.Model):
+    id = models.UUIDField(
+    primary_key=True,
+    default=uuid.uuid4,
+    editable=False
+    )
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="submissions")
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     uploaded_file = models.FileField(upload_to=submission_upload_path)
@@ -63,6 +68,11 @@ class TaskSubmission(models.Model):
 
 
 class TaskEvaluation(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     submission = models.OneToOneField(TaskSubmission, on_delete=models.CASCADE)

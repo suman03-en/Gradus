@@ -58,7 +58,7 @@ class StudentProfile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.roll_no} - {self.user.first_name}"
+        return f"{self.roll_no} - {self.user.username}"
 
 
 class TeacherProfile(models.Model):

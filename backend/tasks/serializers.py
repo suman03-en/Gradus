@@ -54,6 +54,36 @@ class TaskEvaluationSerialzer(serializers.ModelSerializer):
     class Meta:
         model = TaskEvaluation
         fields = [
-            ""
+            "marks_obtained",
+            "feedback"
         ]
+        read_only_fields = {
+            "task",
+            "student",
+            "submission"
+        }
+    
+    def validate_marks_obtained(self, value):
+        task_fm = self.context["task"].full_marks
+        if value <0 or value > task_fm:
+            raise serializers.ValidationError(
+                {
+                    "details":"You cannot assign the marks less than zero or greater than full marks."
+                }
+            )
+        return value
+    
+    def validate_feedback(self, value):
+        if not value.strip():
+            raise serializers.ValidationError(
+                {
+                "details": "Feedback cannot be empty."
+                }
+            )
+        
+    def validate(self, attrs):
+        attrs["task"] = self.context["task"]
+        attrs["student"] = self.context["student"]
+        attrs["submission"] = self.context["task_submission"]
+        return super().validate(attrs)
     

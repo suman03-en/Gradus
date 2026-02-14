@@ -129,7 +129,7 @@ class UserProfileDetailsView(generics.RetrieveAPIView):
     serializer_class = UserDetailsSerializer
     lookup_field = "username"
 
-class ProfileRetrieveUpdateView(generics.CreateAPIView, generics.RetrieveUpdateAPIView):
+class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
     queryset = StudentProfile.objects.all()
     permission_classes = (IsAuthenticated, )
 
@@ -145,6 +145,7 @@ class ProfileRetrieveUpdateView(generics.CreateAPIView, generics.RetrieveUpdateA
         if self.request.user.is_student:
             return StudentProfileSerializer
         return TeacherProfileSerializer
+    
 
 class PasswordResetEmailView(generics.GenericAPIView):
     serializer_class = EnterEmailForPasswordResetSerializer

@@ -3,10 +3,11 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import permissions
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Task, TaskSubmission
+from .models import Task, TaskSubmission, TaskEvaluation
 from .serializers import (
     TaskSerializer,
-    TaskSubmissionSerializer
+    TaskSubmissionSerializer,
+    TaskEvaluationSerialzer
 )
 from .constants import TaskStatus
 from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly
@@ -87,5 +88,19 @@ class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
         context["user"] = self.request.user
         return context
     
+class TaskEvaluationAPIView(generics.CreateAPIView):
+    queryset = TaskEvaluation.objects.all()
+    serializer_class = TaskEvaluationSerialzer
 
-
+    def get_serializer_context(self):
+        task_submission_id = self.kwargs["uuid"]
+        task_submission_obj = generics.get_object_or_404(
+            TaskSubmission,
+            id=task_submission_id
+        )
+        context = super().get_serializer_context()
+        context["task_submission"] = task_submission_obj
+        context["task"] = task_submission_obj.task
+        context["student"] = task_submission_obj.student
+        return context
+    
