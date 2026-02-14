@@ -4,4 +4,5 @@ from .views import TaskRetrieveUpdateDestroyAPIView, TaskSubmissionListCreateAPI
 urlpatterns = [
     path("<uuid:uuid>/", TaskRetrieveUpdateDestroyAPIView.as_view()),
     path("<uuid:uuid>/submit/", TaskSubmissionListCreateAPIView.as_view()),
+    # path("<uuid: uuid>/grade",),
 ]

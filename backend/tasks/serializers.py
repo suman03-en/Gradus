@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task, TaskSubmission
+from .models import Task, TaskSubmission, TaskEvaluation
 
 class TaskSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
@@ -49,4 +49,11 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
         attrs["task"] = task
         attrs["student"] = student
         return attrs
+    
+class TaskEvaluationSerialzer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskEvaluation
+        fields = [
+            ""
+        ]
     

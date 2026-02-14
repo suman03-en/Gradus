@@ -154,7 +154,7 @@ class PasswordResetEmailView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data.get('email')
-        user = UserModel.objects.filter(email=email)[0]
+        user = UserModel.objects.filter(email=email).first()
         if user:
             token = OTPToken.generate_token(5)
             otpserializer = OTPTokenSerializer(data={"token": token})
