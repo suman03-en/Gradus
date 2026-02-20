@@ -10,7 +10,7 @@ from .serializers import (
     TaskEvaluationSerialzer
 )
 from .constants import TaskStatus
-from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly
+from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly, IsCreator
 from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission
 from classrooms.models import Classroom
 

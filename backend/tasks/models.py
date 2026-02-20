@@ -73,7 +73,6 @@ class TaskEvaluation(models.Model):
         default=uuid.uuid4,
         editable=False
     )
-    task = models.ForeignKey(Task, on_delete=models.CASCADE)
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     submission = models.OneToOneField(TaskSubmission, on_delete=models.CASCADE)
     marks_obtained = models.FloatField()
