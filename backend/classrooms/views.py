@@ -54,7 +54,8 @@ class ClassroomDetailView(generics.RetrieveAPIView):
     lookup_field = "id"
     lookup_url_kwarg = "uuid"
 
-
+class ClassroomDeleteView(generics.DestroyAPIView):
+    """this views isnot implemented yet but it has to make the is_active to true"""
 
 class ClassroomJoinView(generics.GenericAPIView):
     serializer_class = InviteCodeSerializer

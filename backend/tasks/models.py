@@ -21,7 +21,7 @@ class Task(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     end_date = models.DateTimeField()
     description = models.TextField(default="")
-    full_marks = models.PositiveIntegerField()
+    full_marks = models.PositiveIntegerField(blank=False, null=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
