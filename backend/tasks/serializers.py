@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 from .models import Task, TaskSubmission, TaskEvaluation
 
@@ -38,14 +39,21 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
             "student",
             "submitted_at"
         )
+    
 
     def validate(self, attrs):
         task = self.context["task"]
         student = self.context["user"]
+        if not task:
+            raise serializers.ValidationError("Task context is missing.")
+        if timezone.now() > task.end_date:
+            raise serializers.ValidationError(
+                {"submission_error": "You can't submit after the deadline."}
+            )
         if self.Meta.model.objects.filter(task=task, student=student).exists():
-            raise serializers.ValidationError({
-            "submission_error": "You can't submit more than once for the same task."
-        })
+            raise serializers.ValidationError(
+                {"submission_error": "You can't submit more than once for the same task."}
+                )
         attrs["task"] = task
         attrs["student"] = student
         return attrs
