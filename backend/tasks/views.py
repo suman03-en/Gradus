@@ -11,7 +11,7 @@ from .serializers import (
 )
 from .constants import TaskStatus
 from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly, IsTeacherOrNotAllowed
-from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission
+from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission, CanViewTaskEvaluation
 from classrooms.models import Classroom
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -107,7 +107,6 @@ class TaskEvaluationAPIView(generics.CreateAPIView):
         )
         context = super().get_serializer_context()
         context["task_submission"] = task_submission_obj
-        context["student"] = task_submission_obj.student
         return context
     
 class TaskEvaluationDetailAPIView(generics.RetrieveAPIView):
@@ -115,7 +114,7 @@ class TaskEvaluationDetailAPIView(generics.RetrieveAPIView):
     View the grade and feedback.
     """
     serializer_class = TaskEvaluationSerialzer
-    permission_classes = [permissions.IsAuthenticated, CanViewTaskSubmission]
+    permission_classes = [permissions.IsAuthenticated, CanViewTaskEvaluation]
     lookup_field = "submission_id"
     lookup_url_kwarg = "submission_id"
 

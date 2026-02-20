@@ -51,7 +51,7 @@ class CanViewTaskEvaluation(permissions.BasePermission):
             return False
 
         if request.user.is_student:
-            return obj.submission.created_by == request.user
+            return obj.submission.student == request.user
 
-        return obj.task.created_by == request.user   
+        return obj.submission.task.created_by == request.user
         
