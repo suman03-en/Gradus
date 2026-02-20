@@ -17,7 +17,7 @@ class IsStudentOrReadOnly(permissions.BasePermission):
         return request.user.is_student
     
 class IsTeacherOrNotAllowed(permissions.BasePermission):
-     message = "Teacher is only allowed. "
+     message = "Teacher is only allowed to perform this action. "
      def has_permission(self, request, view):
           return not request.user.is_student
 
@@ -32,4 +32,5 @@ class IsTeacherOrReadOnly(permissions.BasePermission):
         """Grant permission for creating,updating and deleting task only to their owned objects"""
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
-        return obj.created_by==request.user     
+        return obj.created_by==request.user
+     

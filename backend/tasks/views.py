@@ -10,7 +10,7 @@ from .serializers import (
     TaskEvaluationSerialzer
 )
 from .constants import TaskStatus
-from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly, IsCreator
+from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly, IsTeacherOrNotAllowed
 from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission
 from classrooms.models import Classroom
 
@@ -89,18 +89,38 @@ class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
         return context
     
 class TaskEvaluationAPIView(generics.CreateAPIView):
+    """
+    Teacher can evaluate the task submissions.
+    """
     queryset = TaskEvaluation.objects.all()
     serializer_class = TaskEvaluationSerialzer
+    permission_classes = [permissions.IsAuthenticated, IsTeacherOrNotAllowed]
+
+    def get_object(self):
+        return super().get_object()
 
     def get_serializer_context(self):
-        task_submission_id = self.kwargs["uuid"]
+        task_submission_id = self.kwargs["submission_id"]
         task_submission_obj = generics.get_object_or_404(
             TaskSubmission,
             id=task_submission_id
         )
         context = super().get_serializer_context()
         context["task_submission"] = task_submission_obj
-        context["task"] = task_submission_obj.task
         context["student"] = task_submission_obj.student
         return context
+    
+class TaskEvaluationDetailAPIView(generics.RetrieveAPIView):
+    """
+    View the grade and feedback.
+    """
+    serializer_class = TaskEvaluationSerialzer
+    permission_classes = [permissions.IsAuthenticated, CanViewTaskSubmission]
+    lookup_field = "submission_id"
+    lookup_url_kwarg = "submission_id"
+
+    def get_queryset(self):
+        return TaskEvaluation.objects.all()
+    
+
     

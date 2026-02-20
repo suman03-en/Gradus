@@ -57,14 +57,12 @@ class TaskEvaluationSerialzer(serializers.ModelSerializer):
             "marks_obtained",
             "feedback"
         ]
-        read_only_fields = {
-            "task",
-            "student",
+        read_only_fields = [
             "submission"
-        }
+        ]
     
     def validate_marks_obtained(self, value):
-        task_fm = self.context["task"].full_marks
+        task_fm = self.context["task_submission"].task.full_marks
         if value <0 or value > task_fm:
             raise serializers.ValidationError(
                 {
@@ -80,10 +78,16 @@ class TaskEvaluationSerialzer(serializers.ModelSerializer):
                 "details": "Feedback cannot be empty."
                 }
             )
+        return value
         
     def validate(self, attrs):
-        attrs["task"] = self.context["task"]
-        attrs["student"] = self.context["student"]
-        attrs["submission"] = self.context["task_submission"]
+        submission = self.context["task_submission"]
+        if TaskEvaluation.objects.filter(submission=submission).exists():
+            raise serializers.ValidationError(
+                {
+                    "details":  "This submission has already been evaluated."
+                }
+               )
+        attrs["submission"] = submission
         return super().validate(attrs)
     
