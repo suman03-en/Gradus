@@ -22,13 +22,13 @@ Gradus is a web-based system designed for tracking and maintaining students' int
 12.  ability to  submit tasks if mode is online.
 13. Add strict permissions on TaskSubmissionAPIView
 14. Password reset options with otp in email. ref: https://github.com/obaraelijah/django-otp/blob/master/app/user/serializers.py 
+15. Teacher can grade the tasks.
+16. Allow students to view marks received for tasks.
+17. Make the submission time check.
 
 ## Remaining Tasks
-1. List of all the task submission of each tasks.
-1. Teacher can grade the tasks.
-2. Allow students to view marks received for tasks.
-3. attendance management (daily, bulk, or marks assignment).
 4. Implement dashboard to show total marks or percentage gains per classroom.
+3. attendance management (daily, bulk, or marks assignment) for each classroom.
 
 ## Notes
 

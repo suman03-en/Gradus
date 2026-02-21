@@ -1,7 +1,9 @@
 from django.shortcuts import get_object_or_404
-
 from rest_framework import generics
 from rest_framework import permissions
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
+from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Task, TaskSubmission, TaskEvaluation
 from .serializers import (
@@ -11,7 +13,7 @@ from .serializers import (
 )
 from .constants import TaskStatus
 from accounts.permissions import IsTeacherOrReadOnly, IsStudentOrReadOnly, IsTeacherOrNotAllowed
-from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission, CanViewTaskEvaluation
+from .permissions import IsTaskCreatorOrClassroomStudent, CanViewTaskSubmission, CanViewTaskEvaluation, IsTaskSubmissionCreator
 from classrooms.models import Classroom
 
 class TaskListCreateAPIView(generics.ListCreateAPIView):
@@ -68,7 +70,6 @@ class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
     lookup_url_kwarg = "uuid"
 
     def get_task(self):
-        #returns the current task , using task_id from url path
         task_id = self.kwargs["uuid"]
         task = generics.get_object_or_404(
             Task,
@@ -87,6 +88,42 @@ class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):
         context["task"]=task
         context["user"] = self.request.user
         return context
+  
+    
+class TaskSubmissionUpdateAPIView(generics.UpdateAPIView):
+    queryset = TaskSubmission.objects.select_related("task", "student")
+    serializer_class = TaskSubmissionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTaskSubmissionCreator ]
+    lookup_field = 'id'
+    lookup_url_kwarg = "submission_id"
+
+    def get_queryset(self):
+        return self.queryset.filter(student=self.request.user)
+    
+    def get_serializer_context(self):
+        """Add task context for validation."""
+        context = super().get_serializer_context()
+        submission = self.get_object()
+        context['task'] = submission.task
+        context['user'] = self.request.user
+        return context
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Handle PUT and PATCH requests with proper error handling.
+
+        """ 
+        try:
+            return super().update(request, *args, **kwargs)
+        except ValidationError as e:
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response(
+                {"error": "An error occurred while updating the submission."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+
     
 class TaskEvaluationAPIView(generics.CreateAPIView):
     """

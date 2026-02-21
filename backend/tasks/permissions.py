@@ -54,4 +54,10 @@ class CanViewTaskEvaluation(permissions.BasePermission):
             return obj.submission.student == request.user
 
         return obj.submission.task.created_by == request.user
+    
+class IsTaskSubmissionCreator(permissions.BasePermission):
+    message = "Student who submitted the task submission can only perform this actions."
+    
+    def has_object_permission(self, request, view, obj):
+        return obj.student == request.user
         

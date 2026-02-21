@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
@@ -34,3 +35,7 @@ class TokenLogoutAPIView(APIView):
 
         return response
  
+
+class GradeBookAPIView(generics.GenericAPIView):
+    """This view list all the grades obtained in the tasks per classroom"""
+    

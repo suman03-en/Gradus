@@ -34,27 +34,50 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "task", "student", "submitted_at")
 
     def validate(self, attrs):
-        task = self.context["task"]
-        student = self.context["user"]
+        """
+        Object-level validation for business logic.
+        
+        Validates:
+        - Task exists in context
+        - Task deadline hasn't passed
+        - Task is in ONLINE mode
+        - Student hasn't already submitted
+        """
+
+        task = self.context.get("task")
+        student = self.context.get("user")
         if not task:
-            raise serializers.ValidationError("Task context is missing.")
+            raise serializers.ValidationError({
+                "task": "Task context is required."
+            })
         if timezone.now() > task.end_date:
             raise serializers.ValidationError(
-                {"submission_error": "You can't submit after the deadline."}
+                {"submitted_at": "Submission deadline has passed."}
             )
         if task.mode != TaskMode.ONLINE:
             raise serializers.ValidationError(
-                {"submission_error": "You can't submit in offline tasks."}
+                {"task": "This task does not accept online submissions."}
             )
-        if self.Meta.model.objects.filter(task=task, student=student).exists():
-            raise serializers.ValidationError(
-                {
-                    "submission_error": "You can't submit more than once for the same task."
-                }
-            )
+
+        if not self.instance:
+            if self.Meta.model.objects.filter(task=task, student=student).exists():
+                raise serializers.ValidationError(
+                    {
+                       "detail": "You have already submitted this task."
+                    }
+                )
+        
         attrs["task"] = task
         attrs["student"] = student
         return attrs
+    
+    def update(self, instance, validated_data):
+        """
+        Update submission - only allowed before deadline.
+        
+        Note: Deadline check happens in validate() method.
+        """
+        return super().update(instance, validated_data)
 
 
 class TaskEvaluationSerialzer(serializers.ModelSerializer):
