@@ -1,8 +1,9 @@
 from django.urls import path, include
 from .views import (
-    ClassroomListCreateView, 
-    ClassroomJoinView, 
-    ClassroomDetailView, 
+    ClassroomListCreateView,
+    ClassroomJoinView,
+    ClassroomDetailView,
+    ClassroomGradebookAPIView,
     ClassroomAddStudentView,
 )
 from tasks.views import TaskListCreateAPIView
@@ -12,5 +13,6 @@ urlpatterns = [
     path("join/", ClassroomJoinView.as_view()),
     path("<uuid:uuid>/students/", ClassroomAddStudentView.as_view()),
     path("<uuid:uuid>/", ClassroomDetailView.as_view()),
+    path("<uuid:uuid>/gradebook/", ClassroomGradebookAPIView.as_view()),
     path("<uuid:uuid>/tasks/", TaskListCreateAPIView.as_view()),
 ]
