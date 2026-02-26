@@ -1,1 +1,1 @@
-web: gunicorn backend.gradus.wsgi
+web: gunicorn --pythonpath backend gradus.wsgi
