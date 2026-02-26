@@ -1,1 +1,1 @@
-web: gunicorn gradus.wsgi
+web: gunicorn backend.gradus.wsgi
