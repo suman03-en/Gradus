@@ -151,3 +151,9 @@ REST_SESSION_LOGIN = True
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://gradus-django.up.railway.app",
+    "https://*.railway.app",
+    "https://gradus-frontend-theta.vercel.app/",
+]
