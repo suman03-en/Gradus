@@ -1,1 +1,1 @@
-web: python backend/manage.py migrate --noinput && python backend/manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:$PORT --pythonpath backend gradus.wsgi
+web: python backend/manage.py migrate --noinput && python backend/manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:8080 --pythonpath backend gradus.wsgi
