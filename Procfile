@@ -1,1 +1,1 @@
-web: gunicorn --pythonpath backend gradus.wsgi
+web: gunicorn --bind 0.0.0.0:$PORT --pythonpath backend gradus.wsgi
