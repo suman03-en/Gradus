@@ -160,6 +160,5 @@ CSRF_TRUSTED_ORIGINS = [
 
 CORS_ALLOWED_ORIGINS = [
     "https://gradus-django.up.railway.app",
-    "https://*.railway.app",
-    "https://gradus-frontend-theta.vercel.app/",
+    "https://gradus-frontend-theta.vercel.app",  # Removed the trailing slash
 ]
