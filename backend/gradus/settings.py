@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+
 import os
 from pathlib import Path
 from decouple import config
@@ -149,7 +150,4 @@ REST_TOKEN_LOGIN = True
 REST_SESSION_LOGIN = True
 
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOWED_ORIGINS = ["*"]
-
-CSRF_TRUSTED_ORIGINS = ["*"]
+CORS_ALLOW_ALL_ORIGINS = True
