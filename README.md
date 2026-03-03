@@ -6,12 +6,12 @@ Gradus is a web-based system designed for tracking and maintaining students' int
 
 1. Logout view added.
 2. User profile editing/adding based on role (teacher or student) implemented.
+   - Role identified using `is_student` field in the User model (overriding AbstractUser).
 
-   * Role identified using `is_student` field in the User model (overriding AbstractUser).
 3. Profile retrieval URL implemented: `user/<username>` (read-only).
 4. Teacher classroom management pending (edit, update, delete).
+   - Student notifications on classroom deletion still pending.
 
-   * Student notifications on classroom deletion still pending.
 5. Students can join classrooms but cannot leave after joining.
 6. Classroom join view refactored.
 7. Classroom details view implemented.
@@ -19,17 +19,20 @@ Gradus is a web-based system designed for tracking and maintaining students' int
 9. Implement features for creating various tasks, assignments, offline assessments, tutorials
 10. Allow students to view tasks availabe in classroom.
 11. Retrieve , Update and Delete the tasks with strict permissions.
-12.  ability to  submit tasks if mode is online.
+12. ability to submit tasks if mode is online.
 13. Add strict permissions on TaskSubmissionAPIView
-14. Password reset options with otp in email. ref: https://github.com/obaraelijah/django-otp/blob/master/app/user/serializers.py 
+14. Password reset options with otp in email. ref: https://github.com/obaraelijah/django-otp/blob/master/app/user/serializers.py
 15. Teacher can grade the tasks.
 16. Allow students to view marks received for tasks.
 17. Make the submission time check.
+18. Implement dashboard to show total marks or percentage gains per classroom.
 
 ## Remaining Tasks
-4. Implement dashboard to show total marks or percentage gains per classroom.
+
+1. Add endpoints to upoad the resources for the classrooms.
+2. In app pdf viewer
 3. attendance management (daily, bulk, or marks assignment) for each classroom.
 
 ## Notes
 
-* Each classroom is associated with a single subject.
+- Each classroom is associated with a single subject.
