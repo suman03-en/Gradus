@@ -29,6 +29,8 @@ Gradus is a web-based system designed for tracking and maintaining students' int
 
 ## Remaining Tasks
 
+P: Add the postgres db for the production(host either in supabase)
+
 1. Add endpoints to upoad the resources for the classrooms.
 2. In app pdf viewer
 3. attendance management (daily, bulk, or marks assignment) for each classroom.

@@ -28,9 +28,10 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 class TaskSubmissionSerializer(serializers.ModelSerializer):
+    student_username = serializers.CharField(source="student.username", read_only=True)
     class Meta:
         model = TaskSubmission
-        fields = ("id", "task", "student", "uploaded_file", "submitted_at")
+        fields = ("id", "task", "student","student_username", "uploaded_file", "submitted_at")
         read_only_fields = ("id", "task", "student", "submitted_at")
 
     def validate(self, attrs):
