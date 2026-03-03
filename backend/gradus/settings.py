@@ -155,10 +155,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 CSRF_TRUSTED_ORIGINS = [
     "https://gradus-django.up.railway.app",
     "https://*.railway.app",
-    "https://gradus-frontend-theta.vercel.app/",
+    "https://gradus-frontend-theta.vercel.app",
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "https://gradus-django.up.railway.app",
-    "https://gradus-frontend-theta.vercel.app",  # Removed the trailing slash
+    "https://gradus-frontend-theta.vercel.app",
 ]
+
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = "None"
+
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
