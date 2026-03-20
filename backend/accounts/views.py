@@ -130,16 +130,15 @@ class UserProfileDetailsView(generics.RetrieveAPIView):
     lookup_field = "username"
 
 class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = StudentProfile.objects.all()
     permission_classes = (IsAuthenticated, )
 
-    def _is_student(self, user):
-        if user.is_student:
-            return user.student_profile
-        return user.teacher_profile
+    def get_queryset(self):
+        if self.request.user.is_student:
+            return StudentProfile.objects.filter(user=self.request.user)
+        return TeacherProfile.objects.filter(user=self.request.user)
     
     def get_object(self):
-        return self._is_student(self.request.user)
+        return self.get_queryset().first()
     
     def get_serializer_class(self):
         if self.request.user.is_student:
