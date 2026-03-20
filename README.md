@@ -36,6 +36,4 @@ P: Add the postgres db for the production(host either in supabase)
 3. attendance management (daily, bulk, or marks assignment) for each classroom.
 
 ## Notes
-
-I changed this here again.
 - Each classroom is associated with a single subject.
