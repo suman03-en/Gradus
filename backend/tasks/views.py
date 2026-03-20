@@ -22,7 +22,7 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
     Ability to list only for students.
     """
     serializer_class = TaskSerializer
-    permission_classes = (IsTeacherOrReadOnly, )
+    permission_classes = (permissions.IsAuthenticated, IsTeacherOrReadOnly, )
 
     def get_queryset(self):
         classroom = self.get_classroom()
