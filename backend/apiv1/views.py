@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import AllowAny
 from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import update_last_login
 
 from accounts.views import LoginView
 
@@ -15,6 +16,7 @@ class TokenLoginAPIView(LoginView):
     
     def login(self):
         self.user = self.serializer.validated_data['user']
+        update_last_login(None, self.user)
         self.token, _ = Token.objects.get_or_create(user=self.user)
     
 class TokenLogoutAPIView(APIView):
