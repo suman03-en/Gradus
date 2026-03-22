@@ -40,11 +40,14 @@ AZURE_ACCOUNT_NAME = config("AZURE_ACCOUNT_NAME", default="")
 AZURE_ACCOUNT_KEY = config("AZURE_ACCOUNT_KEY", default="")
 AZURE_CONTAINER = config("AZURE_CONTAINER", default="media")
 
-WHITENOISE_MANIFEST_STRICT = False
+from whitenoise.storage import CompressedManifestStaticFilesStorage
+
+class CustomWhiteNoiseStorage(CompressedManifestStaticFilesStorage):
+    manifest_strict = False
 
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "gradus.settings.production.CustomWhiteNoiseStorage",
     },
     "default": {
         "BACKEND": "storages.backends.azure_storage.AzureStorage",
