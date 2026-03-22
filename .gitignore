@@ -266,4 +266,6 @@ pyrightconfig.json
 # agents rules
 .cursorrules
 
+futureplans.md
+grade-workspace.code-workspace
 # End of https://www.toptal.com/developers/gitignore/api/django,python

@@ -25,5 +25,9 @@ urlpatterns = [
     path("api/v1/", include("apiv1.urls")),
 ]
 
+admin.site.site_header = "Gradus Evaluation System Administration"
+admin.site.site_title = "Gradus Admin Portal"
+admin.site.index_title = "Welcome to Gradus Admin Portal"
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
