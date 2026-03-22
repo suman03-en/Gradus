@@ -45,6 +45,13 @@ from whitenoise.storage import CompressedManifestStaticFilesStorage
 class CustomWhiteNoiseStorage(CompressedManifestStaticFilesStorage):
     manifest_strict = False
 
+    def hashed_name(self, name, content=None, filename=None):
+        try:
+            return super().hashed_name(name, content, filename)
+        except Exception:
+            # If the file (like a .map) is missing, simply don't generate a hashed name
+            return name
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "gradus.settings.production.CustomWhiteNoiseStorage",
