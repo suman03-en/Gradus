@@ -25,6 +25,7 @@ LOCAL_APPS = [
     "apiv1",
     "classrooms",
     "tasks",
+    "resources",
 ]
 
 THIRD_PARTY_APPS = [
@@ -103,6 +104,14 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "20/minute",
+        "user": "60/minute",
+    },
 }
 
 REST_TOKEN_LOGIN = True

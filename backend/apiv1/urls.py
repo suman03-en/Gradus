@@ -6,6 +6,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('classrooms/', include('classrooms.urls')),
     path('tasks/', include('tasks.urls')),
+    path('resources/', include('resources.urls')),
 ]
 
 #token authentication urlpatterns

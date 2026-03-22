@@ -22,14 +22,14 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
         GET: List  all the joined classrooms
     """
 
-    queryset = Classroom.objects.all()
+    queryset = Classroom.objects.prefetch_related("resources").all()
     serializer_class = ClassroomSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsTeacherOrReadOnly]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_student:
-            return user.joined_classrooms
+            return user.joined_classrooms.prefetch_related("resources").all()
         return super().get_queryset().filter(created_by=user)
 
     def get_serializer_context(self):

@@ -26,7 +26,7 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         classroom = self.get_classroom()
-        queryset = Task.objects.filter(
+        queryset = Task.objects.prefetch_related("resources").filter(
             classroom=classroom,
             status=TaskStatus.PUBLISHED
         )
@@ -56,10 +56,10 @@ class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.is_student:
-            return Task.objects.filter(
+            return Task.objects.prefetch_related("resources").filter(
                 classroom__students=user
             )
-        return Task.objects.filter(created_by=self.request.user)
+        return Task.objects.prefetch_related("resources").filter(created_by=self.request.user)
 
 
 class TaskSubmissionListCreateAPIView(generics.ListCreateAPIView):

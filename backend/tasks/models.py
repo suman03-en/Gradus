@@ -2,6 +2,8 @@ import uuid
 from django.db import models
 from django.conf import settings
 from classrooms.models import Classroom
+from django.contrib.contenttypes.fields import GenericRelation
+from django.core.validators import FileExtensionValidator
 from .constants import (
     TaskStatus,
     TaskMode,
@@ -47,6 +49,7 @@ class Task(models.Model):
         choices=TaskType.choices,
         default=TaskType.ASSIGNMENT
     )
+    resources = GenericRelation("resources.Resource")
 
     def __str__(self):
         return self.name
@@ -60,7 +63,10 @@ class TaskSubmission(models.Model):
     )
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="submissions")
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    uploaded_file = models.FileField(upload_to=submission_upload_path)
+    uploaded_file = models.FileField(
+        upload_to=submission_upload_path,
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt', 'zip', 'pptx'])]
+    )
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
