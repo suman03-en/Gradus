@@ -40,6 +40,8 @@ AZURE_ACCOUNT_NAME = config("AZURE_ACCOUNT_NAME", default="")
 AZURE_ACCOUNT_KEY = config("AZURE_ACCOUNT_KEY", default="")
 AZURE_CONTAINER = config("AZURE_CONTAINER", default="media")
 
+WHITENOISE_MANIFEST_STRICT = False
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
