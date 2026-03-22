@@ -12,6 +12,7 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 
 # Application definition
 DJANGO_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -139,3 +140,6 @@ LOGGING = {
         "level": "INFO",
     },
 }
+
+from .jazzmin_settings import JAZZMIN_SETTINGS, JAZZMIN_UI_TWEAKS
+
