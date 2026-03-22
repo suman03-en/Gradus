@@ -6,12 +6,18 @@ from .models import Task, TaskSubmission, TaskEvaluation
 
 class TaskSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
+    resources = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Task
-        fields = "__all__"
+        fields = (
+            "id", "name", "created_at", "updated_at", "end_date", 
+            "description", "full_marks", "created_by", "classroom", 
+            "status", "mode", "task_type", "resources"
+        )
         read_only_fields = (
             "id",
+
             "created_at",
             "updated_at",
             "created_by",
@@ -25,6 +31,22 @@ class TaskSerializer(serializers.ModelSerializer):
         }
         validated_data.update(extra_data)
         return super().create(validated_data)
+
+    def get_resources(self, obj):
+        from django.contrib.contenttypes.models import ContentType
+        from resources.models import Resource
+        ct = ContentType.objects.get_for_model(Task)
+        qs = Resource.objects.filter(content_type=ct, object_id=obj.id)
+        return [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "file_url": r.file.url if r.file and hasattr(r.file, 'url') else None,
+                "uploaded_at": r.uploaded_at
+            }
+            for r in qs
+        ]
+
 
 
 class TaskSubmissionSerializer(serializers.ModelSerializer):

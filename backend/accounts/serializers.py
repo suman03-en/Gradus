@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 
 from rest_framework import serializers
@@ -71,6 +72,7 @@ class UserSerializer(serializers.ModelSerializer):
         if password != confirm_password:
             raise ValidationError("Two passwords must match.")
         
+        validate_password(password)
         return attrs
     
     def create(self, validated_data):
@@ -148,6 +150,10 @@ class CreatePasswordFromResetOTPSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     reset_token = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
 
     
 

@@ -112,7 +112,7 @@ class OTPToken(models.Model):
         on_delete=models.CASCADE,
         related_name='token'
     )
-    token = models.CharField(max_length=5)
+    token = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
     
@@ -130,8 +130,9 @@ class OTPToken(models.Model):
         self.user.save()
 
     @staticmethod
-    def generate_token(length):
-        token = "".join(secrets.choice(string.digits) for _ in range(length))
+    def generate_token(length=6):
+        alphabet = string.ascii_uppercase + string.digits
+        token = "".join(secrets.choice(alphabet) for _ in range(length))
         return token
 
 

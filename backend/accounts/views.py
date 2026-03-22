@@ -4,6 +4,7 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework import status
 
 from django.contrib.auth import (
@@ -51,6 +52,7 @@ class LoginView(generics.GenericAPIView):
     Accept the following POST parameters: username, password
     """
     permission_classes = (AllowAny, )
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     serializer_class = LoginSerializer
 
     def process_login(self):
@@ -150,6 +152,7 @@ class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
 class PasswordResetEmailView(generics.GenericAPIView):
     serializer_class = EnterEmailForPasswordResetSerializer
     permission_classes = [AllowAny, ]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -157,7 +160,7 @@ class PasswordResetEmailView(generics.GenericAPIView):
         email = serializer.validated_data.get('email')
         user = UserModel.objects.filter(email=email).first()
         if user:
-            token = OTPToken.generate_token(5)
+            token = OTPToken.generate_token(6)
             otpserializer = OTPTokenSerializer(data={"token": token})
             if otpserializer.is_valid():
                 otpserializer.save(user=user)
@@ -179,6 +182,7 @@ class VerifyOTPView(APIView):
     step2: User enters email and OTP to verify
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     def post(self, request):
         serializer = EnterOTPSerializer(data=request.data)
@@ -190,6 +194,12 @@ class VerifyOTPView(APIView):
             user = UserModel.objects.get(email=email)
             otp_token = OTPToken.objects.filter(user=user).order_by('-created_at').first()
 
+            if not otp_token:
+                return Response(
+                    {'error': 'No OTP found. Please request a new one.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             if not otp_token.is_valid():
                 #if otp is expired then delete it.
                 otp_token.delete()
@@ -198,7 +208,7 @@ class VerifyOTPView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             if otp == otp_token.token:
-                reset_token = OTPToken.generate_token(5)
+                reset_token = OTPToken.generate_token(6)
                 otp_token.token = reset_token
                 otp_token.save()
                 return Response(
@@ -208,6 +218,10 @@ class VerifyOTPView(APIView):
                     },
                     status=status.HTTP_200_OK
                 )
+            return Response(
+                {'error': 'Invalid OTP.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except UserModel.DoesNotExist:
             return Response(
                 {
@@ -215,12 +229,14 @@ class VerifyOTPView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         
 class ResetPasswordView(APIView):
     """
     step 3: User sets new password using verified reset token
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
 
     def post(self, request):
         serializer = CreatePasswordFromResetOTPSerializer(data=request.data)
@@ -244,7 +260,6 @@ class ResetPasswordView(APIView):
                     {'error': 'Reset token has expired. Please start over.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            print(reset_token, otp_token.token)
             if reset_token != otp_token.token:
                 return Response(
                     {'error': 'Invalid reset token.'},
