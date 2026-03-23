@@ -1,16 +1,20 @@
 from django.urls import path
 from .views import (
     TaskRetrieveUpdateDestroyAPIView,
-    TaskSubmissionListCreateAPIView,
-    TaskSubmissionUpdateAPIView,
-    TaskEvaluationAPIView,
-    TaskEvaluationDetailAPIView
+    TaskRecordListCreateAPIView,
+    TaskRecordUpdateAPIView,
+    TaskRecordEvaluationAPIView,
+    TaskStudentEvaluationAPIView,
+    TaskRecordDetailAPIView,
+    BulkTaskEvaluationAPIView
 )
 
 urlpatterns = [
     path("<uuid:uuid>/", TaskRetrieveUpdateDestroyAPIView.as_view()),
-    path("<uuid:uuid>/submit/", TaskSubmissionListCreateAPIView.as_view()),
-    path("submissions/<uuid:submission_id>/update", TaskSubmissionUpdateAPIView.as_view()),
-    path("submissions/<uuid:submission_id>/evaluate/", TaskEvaluationAPIView.as_view()),
-    path("submissions/<uuid:submission_id>/", TaskEvaluationDetailAPIView.as_view()),
+    path("<uuid:uuid>/submit/", TaskRecordListCreateAPIView.as_view()),
+    path("records/<uuid:record_id>/update", TaskRecordUpdateAPIView.as_view()),
+    path("<uuid:task_id>/bulk-evaluate/", BulkTaskEvaluationAPIView.as_view()),
+    path("<uuid:task_id>/evaluate-student/<uuid:student_id>/", TaskStudentEvaluationAPIView.as_view()),
+    path("records/<uuid:record_id>/evaluate/", TaskRecordEvaluationAPIView.as_view()),
+    path("records/<uuid:record_id>/", TaskRecordDetailAPIView.as_view()),
 ]

@@ -35,7 +35,7 @@ All endpoints (unless marked **Public**) require authentication. Depending on th
 
 - `GET /api/v1/classrooms/` — List classrooms (Teachers see created; Students see joined).
 - `POST /api/v1/classrooms/` — **Teachers Only** | Create a new classroom. Expects `name` and `description`.
-- `GET /api/v1/classrooms/<uuid>/` — Get classroom details (includes `invite_code`, list of students array, list of resources array).
+- `GET /api/v1/classrooms/<uuid>/` — Get classroom details (includes `invite_code`, list of students, list of resources).
 - `POST /api/v1/classrooms/join/` — **Students Only** | Expects `invite_code`. Adds student to classroom.
 - `POST /api/v1/classrooms/<uuid>/students/` — **Teachers Only** | Force-add a student manually. Expects `roll_no`.
 - `GET /api/v1/classrooms/<uuid>/gradebook/` — View grade/performance payload for the classroom tasks.
@@ -44,32 +44,32 @@ All endpoints (unless marked **Public**) require authentication. Depending on th
 
 ---
 
-## 3. Tasks & Submissions (`/api/v1/tasks/`)
+## 3. Tasks & Records (`/api/v1/tasks/`)
 
 - `GET /api/v1/tasks/<uuid>/` — Retrieve a specific task's details.
 - `PUT / PATCH /api/v1/tasks/<uuid>/` — **Teachers Only** | Update a task.
 - `DELETE /api/v1/tasks/<uuid>/` — **Teachers Only** | Delete a task.
 
-### Submitting Work
-- `GET /api/v1/tasks/<uuid>/submit/` — List submissions for this task (Teachers see all; Students see their own).
-- `POST /api/v1/tasks/<uuid>/submit/` — **Students Only** | Create a submission. Needs `multipart/form-data` to upload an `uploaded_file`.
-- `PUT / PATCH /api/v1/tasks/submissions/<submission_id>/update` — **Students Only** | Update an existing submission file (before task deadline/evaluation).
+### Task Records (Submissions & Grades)
+- `GET /api/v1/tasks/<uuid>/submit/` — List records for this task (Teachers see all; Students see their own).
+- `POST /api/v1/tasks/<uuid>/submit/` — **Students Only** | Submit work for **ONLINE tasks ONLY**. Needs `multipart/form-data` with `uploaded_file`.
+- `PUT / PATCH /api/v1/tasks/records/<record_id>/update` — **Students Only** | Update an existing submission file (allowed only before deadline/evaluation).
 
-### Grading & Evaluation
-- `POST /api/v1/tasks/submissions/<submission_id>/evaluate/` — **Teachers Only** | Evaluate a student's submission. Expects `marks_obtained` and `feedback`.
-- `GET /api/v1/tasks/submissions/<submission_id>/` — View the evaluation grade and feedback for a submission.
+### Grading & Evaluation (Teachers Only)
+- `POST /api/v1/tasks/<uuid>/bulk-evaluate/` — Bulk evaluate **OFFLINE tasks ONLY** via CSV. Needs `multipart/form-data` with `file`. (Format: `Roll No, Marks, Feedback`).
+- `POST /api/v1/tasks/<uuid>/evaluate-student/<student_id>/` — Manually evaluate a student directly (creates or updates the record). Expects `marks_obtained` and `feedback`.
+- `PATCH /api/v1/tasks/records/<record_id>/evaluate/` — Evaluate or update marks for an existing task record. Expects `marks_obtained` and `feedback`.
+- `GET /api/v1/tasks/records/<record_id>/` — View full record details (includes submission file, marks, and feedback).
 
 ---
 
 ## 4. Resources (`/api/v1/resources/`)
 
-Used for attaching generic files to either Classrooms or Tasks. Supports `multipart/form-data`.
+Used for attaching files to Classrooms or Tasks. Supports `multipart/form-data`.
 
-- `GET /api/v1/resources/` — List resources uploaded by the user. 
-    - *Query Params:* Can pass `?content_type=<model>&object_id=<uuid>` to filter resources.
-- `POST /api/v1/resources/` — Upload a file resource. Expects `name`, `file`, `content_type`, `object_id`.
-- `GET /api/v1/resources/<id>/` — Retrieve details about a specific resource (including file URL).
+- `GET /api/v1/resources/` — List resources. Filter with `?content_type=<model>&object_id=<uuid>`.
+- `POST /api/v1/resources/` — Upload a resource. Expects `name`, `file`, `content_type`, `object_id`.
+- `GET /api/v1/resources/<id>/` — Retrieve details (including file URL).
 - `DELETE /api/v1/resources/<id>/` — Delete a resource.
 
 ---
-

@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from tasks.constants import TaskMode
-from .models import Task, TaskSubmission, TaskEvaluation
+from .models import Task, TaskRecord
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -49,12 +49,22 @@ class TaskSerializer(serializers.ModelSerializer):
 
 
 
-class TaskSubmissionSerializer(serializers.ModelSerializer):
+class TaskRecordSerializer(serializers.ModelSerializer):
+    """Serializer for student submissions (online tasks)."""
     student_username = serializers.CharField(source="student.username", read_only=True)
+    is_evaluated = serializers.BooleanField(read_only=True)
+
     class Meta:
-        model = TaskSubmission
-        fields = ("id", "task", "student","student_username", "uploaded_file", "submitted_at")
-        read_only_fields = ("id", "task", "student", "submitted_at")
+        model = TaskRecord
+        fields = (
+            "id", "task", "student", "student_username",
+            "uploaded_file", "submitted_at",
+            "marks_obtained", "feedback", "evaluated_at", "is_evaluated"
+        )
+        read_only_fields = (
+            "id", "task", "student", "submitted_at",
+            "marks_obtained", "feedback", "evaluated_at"
+        )
 
     def validate(self, attrs):
         """
@@ -82,6 +92,15 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
                 {"task": "This task does not accept online submissions."}
             )
 
+        # For online tasks, ensure a file is provided
+        has_file_in_instance = self.instance and self.instance.uploaded_file
+        has_file_in_attrs = attrs.get('uploaded_file') is not None
+        
+        if not has_file_in_instance and not has_file_in_attrs:
+            raise serializers.ValidationError(
+                {"uploaded_file": "An uploaded file is required for online tasks."}
+            )
+
         if not self.instance:
             if self.Meta.model.objects.filter(task=task, student=student).exists():
                 raise serializers.ValidationError(
@@ -103,32 +122,35 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class TaskEvaluationSerialzer(serializers.ModelSerializer):
+class TaskEvaluationSerializer(serializers.ModelSerializer):
+    """Serializer for teacher evaluation (marks/feedback on a TaskRecord)."""
     class Meta:
-        model = TaskEvaluation
-        fields = ["marks_obtained", "feedback"]
-        read_only_fields = ["submission"]
+        model = TaskRecord
+        fields = ["marks_obtained", "feedback", "evaluated_at"]
+        read_only_fields = ["evaluated_at"]
 
     def validate_marks_obtained(self, value):
-        task_fm = self.context["task_submission"].task.full_marks
+        task_record = self.context["task_record"]
+        task_fm = task_record.task.full_marks
         if value < 0 or value > task_fm:
             raise serializers.ValidationError(
-                {
-                    "details": "You cannot assign the marks less than zero or greater than full marks."
-                }
+                f"Marks must be between 0 and {task_fm}."
             )
         return value
 
     def validate_feedback(self, value):
         if not value.strip():
-            raise serializers.ValidationError({"details": "Feedback cannot be empty."})
+            raise serializers.ValidationError("Feedback cannot be empty.")
         return value
 
     def validate(self, attrs):
-        submission = self.context["task_submission"]
-        if TaskEvaluation.objects.filter(submission=submission).exists():
+        task_record = self.context["task_record"]
+        if task_record.is_evaluated and not self.context.get("allow_update", False):
             raise serializers.ValidationError(
-                {"details": "This submission has already been evaluated."}
+                {"detail": "This record has already been evaluated."}
             )
-        attrs["submission"] = submission
         return super().validate(attrs)
+
+    def update(self, instance, validated_data):
+        validated_data["evaluated_at"] = timezone.now()
+        return super().update(instance, validated_data)

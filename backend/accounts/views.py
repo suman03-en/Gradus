@@ -130,6 +130,7 @@ class UserProfileDetailsView(generics.RetrieveAPIView):
     """
     queryset = UserModel.objects.all()
     serializer_class = UserDetailsSerializer
+    permission_classes = (IsAuthenticated, )
     lookup_field = "username"
 
 class ProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):

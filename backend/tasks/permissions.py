@@ -31,8 +31,9 @@ class IsTaskCreatorOrClassroomStudent(permissions.BasePermission):
         # Only task creator can update/delete
         return obj.created_by == user
     
-class CanViewTaskSubmission(permissions.BasePermission):
-    message = "Student who submitted task or creator of task can only view tasks."
+class CanViewTaskRecord(permissions.BasePermission):
+    """Permission for viewing task records (submissions/evaluations)."""
+    message = "Student who submitted task or creator of task can only view records."
 
     def has_object_permission(self, request, view, obj):
         if request.method not in permissions.SAFE_METHODS:
@@ -42,22 +43,10 @@ class CanViewTaskSubmission(permissions.BasePermission):
             return obj.student == request.user
 
         return obj.task.created_by == request.user
-    
-class CanViewTaskEvaluation(permissions.BasePermission):
-    message = "Student who submitted  or evaluate the task can only view evaluations."
 
-    def has_object_permission(self, request, view, obj):
-        if request.method not in permissions.SAFE_METHODS:
-            return False
-
-        if request.user.is_student:
-            return obj.submission.student == request.user
-
-        return obj.submission.task.created_by == request.user
-    
-class IsTaskSubmissionCreator(permissions.BasePermission):
-    message = "Student who submitted the task submission can only perform this actions."
+class IsTaskRecordOwner(permissions.BasePermission):
+    """Only the student who owns the record can update it."""
+    message = "Student who submitted the task can only perform this action."
     
     def has_object_permission(self, request, view, obj):
         return obj.student == request.user
-        

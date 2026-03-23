@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes as perm_classes
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
@@ -40,4 +41,42 @@ class TokenLogoutAPIView(APIView):
 
 class GradeBookAPIView(generics.GenericAPIView):
     """This view list all the grades obtained in the tasks per classroom"""
-    
+
+
+@api_view(['GET'])
+@perm_classes([AllowAny])
+def api_root(request, format=None):
+    return Response({
+        'accounts': {
+            'register': request.build_absolute_uri('accounts/register/'),
+            'login': request.build_absolute_uri('accounts/login/'),
+            'logout': request.build_absolute_uri('accounts/logout/'),
+            'me': request.build_absolute_uri('accounts/users/me'),
+            'profile': request.build_absolute_uri('accounts/profile/me'),
+            'password-reset-request': request.build_absolute_uri('accounts/password-reset/request/'),
+            'password-reset-verify': request.build_absolute_uri('accounts/password-reset/verify/'),
+            'password-reset-confirm': request.build_absolute_uri('accounts/password-reset/confirm/'),
+        },
+        'auth-token': {
+            'login': request.build_absolute_uri('auth-token/login/'),
+            'logout': request.build_absolute_uri('auth-token/logout/'),
+        },
+        'classrooms': {
+            'list-create': request.build_absolute_uri('classrooms/'),
+            'join': request.build_absolute_uri('classrooms/join/'),
+            'detail': request.build_absolute_uri('classrooms/<uuid>/'),
+            'students': request.build_absolute_uri('classrooms/<uuid>/students/'),
+            'gradebook': request.build_absolute_uri('classrooms/<uuid>/gradebook/'),
+            'tasks': request.build_absolute_uri('classrooms/<uuid>/tasks/'),
+        },
+        'tasks': {
+            'detail': request.build_absolute_uri('tasks/<uuid>/'),
+            'submit': request.build_absolute_uri('tasks/<uuid>/submit/'),
+            'bulk-evaluate': request.build_absolute_uri('tasks/<uuid>/bulk-evaluate/'),
+            'evaluate-student': request.build_absolute_uri('tasks/<uuid>/evaluate-student/<uuid>/'),
+            'record-update': request.build_absolute_uri('tasks/records/<uuid>/update'),
+            'record-evaluate': request.build_absolute_uri('tasks/records/<uuid>/evaluate/'),
+            'record-detail': request.build_absolute_uri('tasks/records/<uuid>/'),
+        },
+        'resources': request.build_absolute_uri('resources/'),
+    })

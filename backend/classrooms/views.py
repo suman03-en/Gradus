@@ -82,17 +82,25 @@ class ClassroomJoinView(generics.GenericAPIView):
 
 
 class ClassroomAddStudentView(generics.GenericAPIView):
-    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed, IsCreator)
+    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed)
     serializer_class = AddStudentSerializer
 
+    def get_classroom(self, classroom_id):
+        return get_object_or_404(Classroom, id=classroom_id, is_active=True)
+
     def post(self, request, **kwargs):
+        classroom = self.get_classroom(kwargs["uuid"])
+        # Enforce that only the classroom creator can add students
+        if classroom.created_by != request.user:
+            return Response(
+                {"detail": "Only the classroom creator can add students."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         roll_no = serializer.validated_data["roll_no"]
         student_profile = get_object_or_404(StudentProfile, roll_no=roll_no)
         student = student_profile.user
-        classroom_id = kwargs["uuid"]
-        classroom = get_object_or_404(Classroom, id=classroom_id, is_active=True)
         if classroom.students.filter(id=student.id).exists():
             return Response(
                 {
@@ -136,19 +144,16 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
         else:
             students = [user]
 
-        # Fetch submissions and evaluations efficiently
-        from tasks.models import TaskSubmission
+        # Fetch records directly — no more joins through evaluations
+        from tasks.models import TaskRecord
 
-        submissions = TaskSubmission.objects.filter(
+        records = TaskRecord.objects.filter(
             task__in=tasks, student__in=students
-        ).select_related("evaluations")
+        ).select_related("task", "student")
 
-        sub_map = {}
-        for sub in submissions:
-            eval_marks = None
-            if hasattr(sub, "evaluations") and sub.evaluations:
-                eval_marks = sub.evaluations.marks_obtained
-            sub_map[(sub.student_id, sub.task_id)] = eval_marks
+        record_map = {}
+        for rec in records:
+            record_map[(rec.student_id, rec.task_id)] = rec.marks_obtained
 
         students_data = []
         for st in students:
@@ -161,7 +166,7 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
 
             for t in tasks:
                 total_full_marks += t.full_marks
-                eval_marks = sub_map.get((st.id, t.id))
+                eval_marks = record_map.get((st.id, t.id))
                 if eval_marks is not None:
                     marks[str(t.id)] = eval_marks
                     total_obtained += eval_marks

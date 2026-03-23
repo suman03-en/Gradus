@@ -26,8 +26,7 @@ JAZZMIN_SETTINGS = {
         "accounts.TeacherProfile": "fas fa-chalkboard-teacher",
         "classrooms.Classroom": "fas fa-school",
         "tasks.Task": "fas fa-tasks",
-        "tasks.TaskSubmission": "fas fa-file-upload",
-        "tasks.TaskEvaluation": "fas fa-check-double",
+        "tasks.TaskRecord": "fas fa-file-alt",
         "resources.Resource": "fas fa-copy",
     },
 }
