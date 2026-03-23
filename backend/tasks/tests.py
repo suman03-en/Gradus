@@ -107,7 +107,7 @@ class BulkTaskEvaluationTests(APITestCase):
 
     def test_manual_student_evaluation(self):
         """Test the new direct evaluate-student endpoint (POST)."""
-        url = f"/api/v1/tasks/{self.task.id}/evaluate-student/{self.student1.id}/"
+        url = f"/api/v1/tasks/{self.task.id}/evaluate-student/THA079BEI001/"
         data = {
             "marks_obtained": 75,
             "feedback": "Consistent performance"

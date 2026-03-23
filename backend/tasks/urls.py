@@ -14,7 +14,7 @@ urlpatterns = [
     path("<uuid:uuid>/submit/", TaskRecordListCreateAPIView.as_view()),
     path("records/<uuid:record_id>/update", TaskRecordUpdateAPIView.as_view()),
     path("<uuid:task_id>/bulk-evaluate/", BulkTaskEvaluationAPIView.as_view()),
-    path("<uuid:task_id>/evaluate-student/<uuid:student_id>/", TaskStudentEvaluationAPIView.as_view()),
+    path("<uuid:task_id>/evaluate-student/<str:roll_no>/", TaskStudentEvaluationAPIView.as_view()),
     path("records/<uuid:record_id>/evaluate/", TaskRecordEvaluationAPIView.as_view()),
     path("records/<uuid:record_id>/", TaskRecordDetailAPIView.as_view()),
 ]
