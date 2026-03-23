@@ -72,6 +72,9 @@ def api_root(request, format=None):
                 "detail": request.build_absolute_uri("classrooms/<uuid>/"),
                 "students": request.build_absolute_uri("classrooms/<uuid>/students/"),
                 "gradebook": request.build_absolute_uri("classrooms/<uuid>/gradebook/"),
+                "gradebook-weightages": request.build_absolute_uri(
+                    "classrooms/<uuid>/gradebook/weightages/"
+                ),
                 "tasks": request.build_absolute_uri("classrooms/<uuid>/tasks/"),
             },
             "tasks": {

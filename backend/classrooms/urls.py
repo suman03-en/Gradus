@@ -4,7 +4,9 @@ from .views import (
     ClassroomJoinView,
     ClassroomDetailView,
     ClassroomGradebookAPIView,
+    ClassroomGradebookExcelExportAPIView,
     ClassroomAddStudentView,
+    ClassroomWeightageConfigAPIView,
 )
 from tasks.views import TaskListCreateAPIView
 
@@ -14,5 +16,12 @@ urlpatterns = [
     path("<uuid:uuid>/students/", ClassroomAddStudentView.as_view()),
     path("<uuid:uuid>/", ClassroomDetailView.as_view()),
     path("<uuid:uuid>/gradebook/", ClassroomGradebookAPIView.as_view()),
+    path(
+        "<uuid:uuid>/gradebook/export-excel/",
+        ClassroomGradebookExcelExportAPIView.as_view(),
+    ),
+    path(
+        "<uuid:uuid>/gradebook/weightages/", ClassroomWeightageConfigAPIView.as_view()
+    ),
     path("<uuid:uuid>/tasks/", TaskListCreateAPIView.as_view()),
 ]

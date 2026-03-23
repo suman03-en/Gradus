@@ -13,7 +13,7 @@ class TaskSerializer(serializers.ModelSerializer):
         fields = (
             "id", "name", "created_at", "updated_at", "end_date", 
             "description", "full_marks", "created_by", "classroom", 
-            "status", "mode", "task_type", "resources"
+            "status", "mode", "task_type", "assessment_component", "resources"
         )
         read_only_fields = (
             "id",

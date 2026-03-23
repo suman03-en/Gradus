@@ -7,7 +7,8 @@ from django.core.validators import FileExtensionValidator
 from .constants import (
     TaskStatus,
     TaskMode,
-    TaskType
+    TaskType,
+    TaskComponent,
 )
 from .utils import submission_upload_path
 
@@ -48,6 +49,12 @@ class Task(models.Model):
         max_length=20,
         choices=TaskType.choices,
         default=TaskType.ASSIGNMENT
+    )
+    assessment_component = models.CharField(
+        max_length=10,
+        choices=TaskComponent.choices,
+        default=TaskComponent.THEORY,
+        db_index=True,
     )
     resources = GenericRelation("resources.Resource")
 
@@ -90,4 +97,4 @@ class TaskRecord(models.Model):
 
     @property
     def is_evaluated(self):
-        return self.marks_obtained is not None
+        return self.marks_obtained is not None
