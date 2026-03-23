@@ -271,5 +271,7 @@ futureplans.md
 
 # Agents data
 .agents/
+AGENTS.md
+doc.md
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python
