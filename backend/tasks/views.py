@@ -179,6 +179,13 @@ class TaskStudentEvaluationAPIView(generics.GenericAPIView):
         student = self.get_student()
         record = self.get_record()
 
+        # Verify task is offline (direct evaluation only for offline tasks)
+        if task.mode != TaskMode.OFFLINE:
+            return Response(
+                {"error": "Direct student evaluation is only available for offline tasks."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Verify teacher permission for this task
         if task.created_by != request.user and task.classroom.created_by != request.user:
             return Response({"error": "You do not have permission to evaluate this task."}, status=status.HTTP_403_FORBIDDEN)

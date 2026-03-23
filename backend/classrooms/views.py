@@ -1,14 +1,29 @@
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import permissions
 
-from .models import Classroom
-from .serializers import ClassroomSerializer, InviteCodeSerializer, AddStudentSerializer
+from .models import Classroom, ClassroomTaskTypeWeightage
+from .serializers import (
+    ClassroomSerializer,
+    InviteCodeSerializer,
+    AddStudentSerializer,
+    ClassroomTaskTypeWeightageSerializer,
+    ClassroomWeightageConfigSerializer,
+)
 from .permissions import HasJoinedOrIsCreator
 from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly, IsCreator
 from accounts.models import StudentProfile
+from tasks.constants import TaskComponent
+from .utils import (
+    is_valid_component_filter,
+    build_classroom_gradebook_payload,
+    build_weightage_config_payload,
+    upsert_classroom_weightages,
+    build_gradebook_excel_file,
+)
 
 
 class ClassroomListCreateView(generics.ListCreateAPIView):
@@ -129,63 +144,122 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         classroom = self.get_object()
-        user = request.user
-        is_teacher = (
-            not getattr(user, "is_student", False) and classroom.created_by == user
+
+        component_filter = request.query_params.get("component")
+        if not is_valid_component_filter(component_filter):
+            return Response(
+                {
+                    "detail": "Invalid component filter. Use 'theory' or 'lab'."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = build_classroom_gradebook_payload(
+            classroom=classroom,
+            user=request.user,
+            component_filter=component_filter,
         )
 
-        tasks = classroom.tasks.all()
-        tasks_data = [
-            {"id": str(t.id), "name": t.name, "full_marks": t.full_marks} for t in tasks
-        ]
+        return Response(data, status=status.HTTP_200_OK)
 
-        if is_teacher:
-            students = classroom.students.all().select_related("student_profile")
-        else:
-            students = [user]
 
-        # Fetch records directly — no more joins through evaluations
-        from tasks.models import TaskRecord
+class ClassroomGradebookExcelExportAPIView(generics.RetrieveAPIView):
+    queryset = Classroom.objects.all()
+    permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
+    lookup_field = "id"
+    lookup_url_kwarg = "uuid"
 
-        records = TaskRecord.objects.filter(
-            task__in=tasks, student__in=students
-        ).select_related("task", "student")
-
-        record_map = {}
-        for rec in records:
-            record_map[(rec.student_id, rec.task_id)] = rec.marks_obtained
-
-        students_data = []
-        for st in students:
-            st_prof = getattr(st, "student_profile", None)
-            roll_no = st_prof.roll_no if st_prof and st_prof.roll_no else st.username
-
-            marks = {}
-            total_obtained = 0
-            total_full_marks = 0
-
-            for t in tasks:
-                total_full_marks += t.full_marks
-                eval_marks = record_map.get((st.id, t.id))
-                if eval_marks is not None:
-                    marks[str(t.id)] = eval_marks
-                    total_obtained += eval_marks
-
-            students_data.append(
-                {
-                    "id": str(st.id),
-                    "username": st.username,
-                    "roll_no": roll_no,
-                    "marks": marks,
-                    "total_obtained": total_obtained,
-                    "total_full_marks": total_full_marks,
-                }
+    def retrieve(self, request, *args, **kwargs):
+        component = request.query_params.get("component")
+        if not component:
+            return Response(
+                {"detail": "component query param is required (theory or lab)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not is_valid_component_filter(component):
+            return Response(
+                {"detail": "Invalid component filter. Use 'theory' or 'lab'."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        data = {
-            "classroom": {"id": str(classroom.id), "name": classroom.name},
-            "tasks": tasks_data,
-            "students": students_data,
-        }
+        classroom = self.get_object()
 
-        return Response(data, status=status.HTTP_200_OK)
+        try:
+            file_bytes, filename = build_gradebook_excel_file(
+                classroom=classroom,
+                user=request.user,
+                component=component,
+            )
+        except ImportError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        response = HttpResponse(
+            file_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ClassroomWeightageConfigAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.IsAuthenticated(), HasJoinedOrIsCreator()]
+        return [permissions.IsAuthenticated(), IsTeacherOrNotAllowed()]
+
+    def get_classroom(self):
+        return get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+
+    def get(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+
+        weightage_summary = build_weightage_config_payload(classroom)
+
+        return Response(
+            {
+                "classroom": {"id": str(classroom.id), "name": classroom.name},
+                **weightage_summary,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def put(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+
+        if classroom.created_by != request.user:
+            return Response(
+                {
+                    "detail": "Only the classroom creator can update weightage configuration."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ClassroomWeightageConfigSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        upsert_classroom_weightages(
+            classroom=classroom,
+            weightages_data=serializer.validated_data["weightages"],
+        )
+
+        output = ClassroomTaskTypeWeightage.objects.filter(classroom=classroom)
+        response_data = ClassroomTaskTypeWeightageSerializer(output, many=True).data
+        weightage_summary = build_weightage_config_payload(classroom)
+
+        return Response(
+            {
+                "classroom": {"id": str(classroom.id), "name": classroom.name},
+                "weightages": response_data,
+                "total_configured_weightage": weightage_summary[
+                    "total_configured_weightage"
+                ],
+                "total_configured_weightage_by_component": weightage_summary[
+                    "total_configured_weightage_by_component"
+                ],
+            },
+            status=status.HTTP_200_OK,
+        )

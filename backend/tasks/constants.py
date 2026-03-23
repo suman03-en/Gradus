@@ -15,3 +15,8 @@ class TaskType(models.TextChoices):
     ASSESSMENT = "assessment", "Assessment"
     LAB_REPORT = "lab_report", "Lab Report"
     QUIZ = "quiz", "Quiz"
+
+
+class TaskComponent(models.TextChoices):
+    THEORY = "theory", "Theory"
+    LAB = "lab", "Lab"
