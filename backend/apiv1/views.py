@@ -73,7 +73,7 @@ def api_root(request, format=None):
             'detail': request.build_absolute_uri('tasks/<uuid>/'),
             'submit': request.build_absolute_uri('tasks/<uuid>/submit/'),
             'bulk-evaluate': request.build_absolute_uri('tasks/<uuid>/bulk-evaluate/'),
-            'evaluate-student': request.build_absolute_uri('tasks/<uuid>/evaluate-student/<uuid>/'),
+            'evaluate-student': request.build_absolute_uri('tasks/<uuid>/evaluate-student/<roll_no>/'),
             'record-update': request.build_absolute_uri('tasks/records/<uuid>/update'),
             'record-evaluate': request.build_absolute_uri('tasks/records/<uuid>/evaluate/'),
             'record-detail': request.build_absolute_uri('tasks/records/<uuid>/'),

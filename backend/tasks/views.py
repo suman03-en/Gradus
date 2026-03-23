@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from accounts.models import StudentProfile
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import permissions
@@ -167,7 +168,8 @@ class TaskStudentEvaluationAPIView(generics.GenericAPIView):
         return get_object_or_404(Task, id=self.kwargs["task_id"])
 
     def get_student(self):
-        return get_object_or_404(User, id=self.kwargs["student_id"])
+        profile = get_object_or_404(StudentProfile, roll_no__iexact=self.kwargs["roll_no"])
+        return profile.user
 
     def get_record(self):
         return TaskRecord.objects.filter(task=self.get_task(), student=self.get_student()).first()
