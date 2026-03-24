@@ -209,3 +209,55 @@ class AttendanceRecord(models.Model):
             models.Index(fields=["student", "session"]),
             models.Index(fields=["session", "is_present"]),
         ]
+
+
+class AttendanceSummary(models.Model):
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="attendance_summaries",
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attendance_summaries",
+        db_index=True,
+    )
+    assessment_component = models.CharField(
+        max_length=10,
+        choices=TaskComponent.choices,
+        default=TaskComponent.THEORY,
+        db_index=True,
+    )
+    present_days = models.PositiveIntegerField(default=0)
+    total_days = models.PositiveIntegerField(default=0)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="updated_attendance_summaries",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "student", "assessment_component"],
+                name="unique_classroom_student_component_attendance_summary",
+            ),
+            models.CheckConstraint(
+                condition=Q(present_days__gte=0),
+                name="attendance_summary_present_days_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=Q(total_days__gte=0),
+                name="attendance_summary_total_days_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=Q(present_days__lte=models.F("total_days")),
+                name="attendance_summary_present_days_lte_total_days",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["classroom", "assessment_component"]),
+            models.Index(fields=["classroom", "student"]),
+        ]

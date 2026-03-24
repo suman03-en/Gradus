@@ -29,7 +29,7 @@ urlpatterns = [
     ),
     path("<uuid:uuid>/attendance/", ClassroomAttendanceAPIView.as_view()),
     path(
-        "<uuid:uuid>/attendance/bulk/csv/",
+        "<uuid:uuid>/attendance/summary/csv/",
         ClassroomAttendanceBulkCSVUploadAPIView.as_view(),
     ),
     path("<uuid:uuid>/tasks/", TaskListCreateAPIView.as_view()),

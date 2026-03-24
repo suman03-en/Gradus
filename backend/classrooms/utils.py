@@ -32,6 +32,7 @@ def build_classroom_gradebook_payload(
         ClassroomTaskTypeWeightage,
         ClassroomAttendanceWeightage,
         AttendanceRecord,
+        AttendanceSummary,
     )
 
     is_teacher = classroom.is_teacher(user)
@@ -130,6 +131,20 @@ def build_classroom_gradebook_payload(
         attendance_totals[key] = attendance_totals.get(key, 0) + 1
         if rec.is_present:
             attendance_present[key] = attendance_present.get(key, 0) + 1
+
+    attendance_summary_qs = AttendanceSummary.objects.filter(
+        classroom=classroom,
+        student__in=students,
+    )
+    if component_filter:
+        attendance_summary_qs = attendance_summary_qs.filter(
+            assessment_component=component_filter
+        )
+
+    for summary in attendance_summary_qs:
+        key = (summary.student_id, summary.assessment_component)
+        attendance_totals[key] = summary.total_days
+        attendance_present[key] = summary.present_days
 
     students_data = []
     for st in students:

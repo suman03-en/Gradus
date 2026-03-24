@@ -147,12 +147,12 @@ class ClassroomAttendanceTests(APITestCase):
 
     def test_teacher_can_upload_attendance_csv(self):
         self.client.force_authenticate(user=self.teacher)
-        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/bulk/csv/"
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/summary/csv/"
 
         content = (
-            "date,assessment_component,roll_no,is_present,note\n"
-            "2026-03-20,theory,THA079BEI111,1,Week 1\n"
-            "2026-03-20,theory,THA079BEI112,0,Week 1\n"
+            "assessment_component,roll_no,present_days,total_days,note\n"
+            "theory,THA079BEI111,20,24,Month Summary\n"
+            "theory,THA079BEI112,19,24,Month Summary\n"
         )
         upload = SimpleUploadedFile(
             "attendance.csv", content.encode("utf-8"), content_type="text/csv"
@@ -163,11 +163,11 @@ class ClassroomAttendanceTests(APITestCase):
 
     def test_student_cannot_upload_attendance_csv(self):
         self.client.force_authenticate(user=self.student_a)
-        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/bulk/csv/"
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/summary/csv/"
 
         content = (
-            "date,assessment_component,roll_no,is_present\n"
-            "2026-03-20,theory,THA079BEI111,1\n"
+            "assessment_component,roll_no,present_days,total_days\n"
+            "theory,THA079BEI111,20,24\n"
         )
         upload = SimpleUploadedFile(
             "attendance.csv", content.encode("utf-8"), content_type="text/csv"

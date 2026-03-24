@@ -16,6 +16,7 @@ from .models import (
     ClassroomTaskTypeWeightage,
     AttendanceSession,
     AttendanceRecord,
+    AttendanceSummary,
     ClassroomAttendanceWeightage,
 )
 from .serializers import (
@@ -435,8 +436,10 @@ class ClassroomAttendanceAPIView(generics.GenericAPIView):
             records_qs = records_qs.filter(student=request.user)
 
         summary = {}
+        summary_by_component = {}
         for rec in records_qs:
             key = str(rec.student_id)
+            comp = rec.session.assessment_component
             if key not in summary:
                 roll_no = None
                 profile = getattr(rec.student, "student_profile", None)
@@ -450,13 +453,50 @@ class ClassroomAttendanceAPIView(generics.GenericAPIView):
                     "total": 0,
                     "percentage": 0,
                 }
-            summary[key]["total"] += 1
+            summary_by_component.setdefault(key, {})
+            summary_by_component[key].setdefault(comp, {"present": 0, "total": 0})
+            summary_by_component[key][comp]["total"] += 1
             if rec.is_present:
-                summary[key]["present"] += 1
+                summary_by_component[key][comp]["present"] += 1
 
-        for item in summary.values():
-            if item["total"] > 0:
-                item["percentage"] = round((item["present"] / item["total"]) * 100, 2)
+        summary_qs = AttendanceSummary.objects.filter(classroom=classroom)
+        if not is_teacher:
+            summary_qs = summary_qs.filter(student=request.user)
+        for row in summary_qs.select_related("student", "student__student_profile"):
+            key = str(row.student_id)
+            roll_no = (
+                row.student.student_profile.roll_no
+                if hasattr(row.student, "student_profile")
+                and row.student.student_profile
+                and row.student.student_profile.roll_no
+                else row.student.username
+            )
+            existing = summary.get(
+                key,
+                {
+                    "student_id": key,
+                    "username": row.student.username,
+                    "roll_no": roll_no,
+                    "present": 0,
+                    "total": 0,
+                    "percentage": 0,
+                },
+            )
+            summary[key] = existing
+            summary_by_component.setdefault(key, {})
+            summary_by_component[key][row.assessment_component] = {
+                "present": row.present_days,
+                "total": row.total_days,
+            }
+
+        for key, components in summary_by_component.items():
+            present = sum(item["present"] for item in components.values())
+            total = sum(item["total"] for item in components.values())
+            summary[key]["present"] = present
+            summary[key]["total"] = total
+            summary[key]["percentage"] = (
+                round((present / total) * 100, 2) if total > 0 else 0
+            )
 
         session_records_map = {}
         for rec in records_qs:
@@ -552,7 +592,12 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        required_columns = {"date", "assessment_component", "roll_no", "is_present"}
+        required_columns = {
+            "assessment_component",
+            "roll_no",
+            "present_days",
+            "total_days",
+        }
         incoming_columns = set(reader.fieldnames or [])
         missing = sorted(required_columns - incoming_columns)
         if missing:
@@ -560,7 +605,7 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
                 {
                     "detail": (
                         "CSV missing required columns: " + ", ".join(missing) + ". "
-                        "Required: date, assessment_component, roll_no, is_present. "
+                        "Required: assessment_component, roll_no, present_days, total_days. "
                         "Optional: note"
                     )
                 },
@@ -579,24 +624,16 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
         grouped = {}
         row_errors = []
 
-        def parse_bool(raw):
-            val = (raw or "").strip().lower()
-            if val in {"1", "true", "t", "yes", "y", "present", "p"}:
-                return True
-            if val in {"0", "false", "f", "no", "n", "absent", "a"}:
-                return False
-            return None
-
         for idx, row in enumerate(reader, start=2):
-            raw_date = (row.get("date") or "").strip()
             raw_component = (row.get("assessment_component") or "").strip().lower()
             raw_roll = (row.get("roll_no") or "").strip().upper()
-            raw_present = row.get("is_present")
+            raw_present_days = (row.get("present_days") or "").strip()
+            raw_total_days = (row.get("total_days") or "").strip()
             raw_note = (row.get("note") or "").strip()
 
-            if not raw_date or not raw_component or not raw_roll:
+            if not raw_component or not raw_roll:
                 row_errors.append(
-                    f"Row {idx}: date, assessment_component and roll_no are required."
+                    f"Row {idx}: assessment_component and roll_no are required."
                 )
                 continue
 
@@ -606,10 +643,24 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
                 )
                 continue
 
-            present_val = parse_bool(raw_present)
-            if present_val is None:
+            try:
+                present_days = int(raw_present_days)
+                total_days = int(raw_total_days)
+            except ValueError:
                 row_errors.append(
-                    f"Row {idx}: invalid is_present '{raw_present}'. Use true/false, 1/0, present/absent."
+                    f"Row {idx}: present_days and total_days must be integers."
+                )
+                continue
+
+            if present_days < 0 or total_days < 0:
+                row_errors.append(
+                    f"Row {idx}: present_days and total_days must be non-negative."
+                )
+                continue
+
+            if present_days > total_days:
+                row_errors.append(
+                    f"Row {idx}: present_days cannot be greater than total_days."
                 )
                 continue
 
@@ -620,19 +671,27 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
                 )
                 continue
 
-            key = (raw_date, raw_component)
+            key = (raw_roll, raw_component)
             grouped.setdefault(
                 key,
                 {
-                    "date": raw_date,
+                    "student_id": student_id,
                     "assessment_component": raw_component,
                     "note": raw_note,
-                    "entries": {},
+                    "present_days": 0,
+                    "total_days": 0,
                 },
             )
             if raw_note and not grouped[key]["note"]:
                 grouped[key]["note"] = raw_note
-            grouped[key]["entries"][student_id] = present_val
+            grouped[key]["present_days"] += present_days
+            grouped[key]["total_days"] += total_days
+
+        for key, payload in grouped.items():
+            if payload["present_days"] > payload["total_days"]:
+                row_errors.append(
+                    f"Row group {key[0]}-{key[1]}: total present_days exceeds total_days."
+                )
 
         if row_errors:
             return Response(
@@ -651,30 +710,23 @@ class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
 
         saved = []
         with transaction.atomic():
-            helper = ClassroomAttendanceAPIView()
-            helper.request = request
-            for (_date, _component), payload in grouped.items():
-                serializer = AttendanceSessionUpsertSerializer(
-                    data={
-                        "date": payload["date"],
-                        "assessment_component": payload["assessment_component"],
-                        "note": payload["note"],
-                        "entries": [
-                            {"student_id": str(student_id), "is_present": is_present}
-                            for student_id, is_present in payload["entries"].items()
-                        ],
-                    }
+            for (_roll, _component), payload in grouped.items():
+                summary, _ = AttendanceSummary.objects.update_or_create(
+                    classroom=classroom,
+                    student_id=payload["student_id"],
+                    assessment_component=payload["assessment_component"],
+                    defaults={
+                        "present_days": payload["present_days"],
+                        "total_days": payload["total_days"],
+                        "updated_by": request.user,
+                    },
                 )
-                serializer.is_valid(raise_exception=True)
-                session = helper._upsert_one_session(
-                    classroom, serializer.validated_data
-                )
-                saved.append(str(session.id))
+                saved.append(str(summary.id))
 
         return Response(
             {
-                "detail": "CSV attendance uploaded successfully.",
-                "saved_sessions": saved,
+                "detail": "Attendance summary CSV uploaded successfully.",
+                "saved_summaries": saved,
             },
             status=status.HTTP_200_OK,
         )
