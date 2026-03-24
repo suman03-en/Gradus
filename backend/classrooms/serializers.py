@@ -13,6 +13,7 @@ class StudentForeignKey(serializers.PrimaryKeyRelatedField):
 class ClassroomSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
     students = StudentForeignKey(many=True)
+    teachers = serializers.SerializerMethodField(read_only=True)
     resources = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -22,6 +23,7 @@ class ClassroomSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "created_by",
+            "teachers",
             "invite_code",
             "created_at",
             "students",
@@ -45,6 +47,12 @@ class ClassroomSerializer(serializers.ModelSerializer):
             for r in qs
         ]
 
+    def get_teachers(self, obj):
+        teacher_usernames = [obj.created_by.username]
+        teacher_usernames.extend(obj.teachers.values_list("username", flat=True))
+        # Preserve order while removing duplicates.
+        return list(dict.fromkeys(teacher_usernames))
+
 
 class InviteCodeSerializer(serializers.Serializer):
     invite_code = serializers.CharField()
@@ -54,6 +62,12 @@ class AddStudentSerializer(serializers.Serializer):
     """Teacher add students to classrooms by roll_no of students"""
 
     roll_no = serializers.CharField(required=True, validators=[validate_roll_number])
+
+
+class AddTeacherSerializer(serializers.Serializer):
+    """Classroom owner can add co-teachers by username."""
+
+    username = serializers.CharField(required=True)
 
 
 class ClassroomTaskTypeWeightageSerializer(serializers.ModelSerializer):

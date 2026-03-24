@@ -24,11 +24,13 @@ def is_valid_component_filter(component_filter: Optional[str]) -> bool:
     return component_filter in {TaskComponent.THEORY, TaskComponent.LAB}
 
 
-def build_classroom_gradebook_payload(classroom, user, component_filter: Optional[str] = None):
+def build_classroom_gradebook_payload(
+    classroom, user, component_filter: Optional[str] = None
+):
     from tasks.models import TaskRecord
     from .models import ClassroomTaskTypeWeightage
 
-    is_teacher = not getattr(user, "is_student", False) and classroom.created_by == user
+    is_teacher = classroom.is_teacher(user)
 
     tasks = classroom.tasks.all()
     if component_filter:
@@ -74,9 +76,9 @@ def build_classroom_gradebook_payload(classroom, user, component_filter: Optiona
     else:
         students = [user]
 
-    records = TaskRecord.objects.filter(task__in=tasks, student__in=students).select_related(
-        "task", "student"
-    )
+    records = TaskRecord.objects.filter(
+        task__in=tasks, student__in=students
+    ).select_related("task", "student")
 
     record_map = {}
     for rec in records:
@@ -183,7 +185,9 @@ def build_weightage_config_payload(classroom):
                 }
             )
 
-    total_weightage = sum(row["weightage"] for row in payload if row["include_in_final"])
+    total_weightage = sum(
+        row["weightage"] for row in payload if row["include_in_final"]
+    )
     total_weightage_by_component = {
         TaskComponent.THEORY: sum(
             row["weightage"]
@@ -246,11 +250,13 @@ def build_gradebook_excel_file(classroom, user, component: str):
 
     for student in payload["students"]:
         marks = student.get("total_obtained", 0)
-        sheet.append([
-            student.get("username", ""),
-            student.get("roll_no", ""),
-            marks if marks is not None else 0,
-        ])
+        sheet.append(
+            [
+                student.get("username", ""),
+                student.get("roll_no", ""),
+                marks if marks is not None else 0,
+            ]
+        )
 
     safe_classroom_name = re.sub(r"[^A-Za-z0-9_-]+", "_", classroom.name).strip("_")
     if not safe_classroom_name:

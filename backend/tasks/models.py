@@ -14,41 +14,39 @@ from .utils import submission_upload_path
 
 
 class Task(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=150)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-    end_date = models.DateTimeField()
+    end_date = models.DateTimeField(db_index=True)  # Frequent filtering by deadline
     description = models.TextField(default="")
     full_marks = models.PositiveIntegerField(blank=False, null=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="created_tasks"
+        related_name="created_tasks",
+        db_index=True,
     )
     classroom = models.ForeignKey(
         Classroom,
         on_delete=models.CASCADE,
-        related_name="tasks"
+        related_name="tasks",
+        db_index=True,  # Frequent filtering by classroom
     )
     status = models.CharField(
         max_length=10,
         choices=TaskStatus.choices,
-        default=TaskStatus.DRAFT
+        default=TaskStatus.DRAFT,
+        db_index=True,  # Frequent filtering by status
     )
     mode = models.CharField(
-        max_length=10,
-        choices=TaskMode.choices,
-        default=TaskMode.ONLINE
+        max_length=10, choices=TaskMode.choices, default=TaskMode.ONLINE
     )
     task_type = models.CharField(
         max_length=20,
         choices=TaskType.choices,
-        default=TaskType.ASSIGNMENT
+        default=TaskType.ASSIGNMENT,
+        db_index=True,  # Filtering by task type
     )
     assessment_component = models.CharField(
         max_length=10,
@@ -58,9 +56,19 @@ class Task(models.Model):
     )
     resources = GenericRelation("resources.Resource")
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["classroom", "status"]
+            ),  # Compound index for common queries
+            models.Index(
+                fields=["classroom", "end_date"]
+            ),  # Filter tasks by classroom and deadline
+        ]
+
     def __str__(self):
         return self.name
-    
+
 
 class TaskRecord(models.Model):
     """
@@ -68,18 +76,38 @@ class TaskRecord(models.Model):
     For online tasks: stores the uploaded file AND marks/feedback after evaluation.
     For offline tasks: stores only marks/feedback (no file).
     """
-    id = models.UUIDField(
-    primary_key=True,
-    default=uuid.uuid4,
-    editable=False
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="records",
+        db_index=True,  # Frequent filtering by task
     )
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="records")
-    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        db_index=True,  # Frequent lookups by student
+    )
     uploaded_file = models.FileField(
         upload_to=submission_upload_path,
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt', 'zip', 'pptx'])],
+        validators=[
+            FileExtensionValidator(
+                allowed_extensions=[
+                    "pdf",
+                    "doc",
+                    "docx",
+                    "jpg",
+                    "jpeg",
+                    "png",
+                    "txt",
+                    "zip",
+                    "pptx",
+                ]
+            )
+        ],
         null=True,
-        blank=True
+        blank=True,
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
 
@@ -91,6 +119,10 @@ class TaskRecord(models.Model):
     class Meta:
         unique_together = ("task", "student")
         db_table = "tasks_taskrecord"
+        indexes = [
+            models.Index(fields=["task", "student"]),  # Unique compound for lookups
+            models.Index(fields=["task", "marks_obtained"]),  # Filter for grading stats
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.task}"
