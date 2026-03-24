@@ -41,14 +41,18 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
         GET: List  all the joined classrooms
     """
 
-    queryset = Classroom.objects.prefetch_related("resources").all()
+    queryset = Classroom.objects.prefetch_related(
+        "resources", "created_by", "teachers", "students"
+    ).all()
     serializer_class = ClassroomSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsTeacherOrReadOnly]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_student:
-            return user.joined_classrooms.prefetch_related("resources").all()
+            return user.joined_classrooms.prefetch_related(
+                "resources", "created_by", "teachers"
+            ).all()
         return (
             super()
             .get_queryset()
@@ -70,7 +74,9 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
 
 
 class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Classroom.objects.all()
+    queryset = Classroom.objects.prefetch_related(
+        "resources", "created_by", "teachers", "students"
+    ).all()
     serializer_class = ClassroomSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
@@ -196,7 +202,11 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
     For students, it returns only their own performance.
     """
 
-    queryset = Classroom.objects.all()
+    queryset = (
+        Classroom.objects.select_related("created_by")
+        .prefetch_related("students", "teachers", "tasks")
+        .all()
+    )
     permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
     lookup_field = "id"
     lookup_url_kwarg = "uuid"
@@ -220,7 +230,11 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
 
 
 class ClassroomGradebookExcelExportAPIView(generics.RetrieveAPIView):
-    queryset = Classroom.objects.all()
+    queryset = (
+        Classroom.objects.select_related("created_by")
+        .prefetch_related("students", "teachers", "tasks")
+        .all()
+    )
     permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
     lookup_field = "id"
     lookup_url_kwarg = "uuid"

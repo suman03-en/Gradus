@@ -46,8 +46,10 @@ class TaskListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         classroom = self.get_classroom()
-        queryset = Task.objects.prefetch_related("resources").filter(
-            classroom=classroom, status=TaskStatus.PUBLISHED
+        queryset = (
+            Task.objects.select_related("created_by", "classroom")
+            .prefetch_related("resources")
+            .filter(classroom=classroom, status=TaskStatus.PUBLISHED)
         )
         return queryset
 
@@ -82,11 +84,14 @@ class TaskRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.is_student:
-            return Task.objects.prefetch_related("resources").filter(
-                classroom__students=user
+            return (
+                Task.objects.select_related("created_by", "classroom")
+                .prefetch_related("resources")
+                .filter(classroom__students=user)
             )
         return (
-            Task.objects.prefetch_related("resources")
+            Task.objects.select_related("created_by", "classroom")
+            .prefetch_related("resources")
             .filter(
                 Q(classroom__created_by=self.request.user)
                 | Q(classroom__teachers=self.request.user)
@@ -127,10 +132,12 @@ class TaskRecordListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.user.is_student:
-            return TaskRecord.objects.filter(
+            return TaskRecord.objects.select_related("task", "student").filter(
                 task=self.get_task(), student=self.request.user
             )
-        return TaskRecord.objects.filter(task=self.get_task())
+        return TaskRecord.objects.select_related("task", "student").filter(
+            task=self.get_task()
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

@@ -118,6 +118,23 @@ REST_FRAMEWORK = {
 REST_TOKEN_LOGIN = True
 REST_SESSION_LOGIN = False
 
+# Caching Configuration (Database Cache - No Redis required)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "gradus_cache_table",
+        "OPTIONS": {
+            "MAX_ENTRIES": 10000,
+            "CULL_FREQUENCY": 3,  # Remove 1/3 of oldest entries when max is reached
+        },
+    }
+}
+
+# Cache timeout (in seconds) - 1 hour for classroom lists, 30 minutes for gradebook
+CACHE_TIMEOUT_CLASSROOM = 3600
+CACHE_TIMEOUT_GRADEBOOK = 1800
+CACHE_TIMEOUT_TASKS = 1800
+
 # Consistent logging framework setup
 LOGGING = {
     "version": 1,
@@ -142,4 +159,3 @@ LOGGING = {
 }
 
 from .jazzmin_settings import JAZZMIN_SETTINGS, JAZZMIN_UI_TWEAKS
-

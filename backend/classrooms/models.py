@@ -15,8 +15,14 @@ class Classroom(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="created_classrooms",
+        db_index=True,  # Frequent filtering by creator
     )
-    invite_code = models.CharField(max_length=10, unique=True, editable=False)
+    invite_code = models.CharField(
+        max_length=10,
+        unique=True,
+        editable=False,
+        db_index=True,  # Frequent lookups when joining via code
+    )
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="joined_classrooms", blank=True
     )
@@ -26,9 +32,10 @@ class Classroom(models.Model):
         blank=True,
     )
     is_active = models.BooleanField(
-        default=True
-    )  # set is_active to False when deleting
-    created_at = models.DateTimeField(auto_now_add=True)
+        default=True,
+        db_index=True,  # Filter active classrooms only
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     resources = GenericRelation("resources.Resource")
 
     def _check_unique(self, invite_code):

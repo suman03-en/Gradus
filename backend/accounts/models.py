@@ -11,23 +11,20 @@ from .constants import Semester, Department, Section, Designation
 
 
 class User(AbstractUser):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    is_student = models.BooleanField(
+        default=True,
+        verbose_name="Are you a student?",
+        db_index=True,  # Frequently filtered for permission checks
     )
-    is_student = models.BooleanField(default=True, verbose_name="Are you a student?")
+
 
 class StudentProfile(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="student_profile"
+        related_name="student_profile",
     )
     roll_no = models.CharField(
         max_length=150,
@@ -35,26 +32,31 @@ class StudentProfile(models.Model):
         blank=True,
         null=True,
         validators=[validate_roll_number],
-        help_text="e.g THA079BEI042"
+        help_text="e.g THA079BEI042",
+        db_index=True,  # Frequent searches and lookups
     )
     department = models.CharField(
         max_length=2,
-        choices=Department.choices
+        choices=Department.choices,
+        db_index=True,  # Used for filtering student lists by department
     )
     current_semester = models.IntegerField(
-        choices=Semester.choices,
-        default=Semester.SEM_1
+        choices=Semester.choices, default=Semester.SEM_1
     )
-    batch_year = models.PositiveIntegerField(null=True, blank=True)
+    batch_year = models.PositiveIntegerField(null=True, blank=True, db_index=True)
     section = models.CharField(
         max_length=5,
         choices=Section.choices,
-        default=Section.GROUP_A  # for no section, group A is default
+        default=Section.GROUP_A,  # for no section, group A is default
     )
 
     class Meta:
         indexes = [
-            models.Index(fields=['id'])
+            models.Index(fields=["id"]),
+            models.Index(fields=["user_id"]),  # FK lookup optimization
+            models.Index(
+                fields=["department", "current_semester"]
+            ),  # Compound index for filtering
         ]
 
     def __str__(self):
@@ -62,60 +64,53 @@ class StudentProfile(models.Model):
 
 
 class TeacherProfile(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="teacher_profile"
+        related_name="teacher_profile",
     )
     department = models.CharField(
-        max_length=2, 
-        choices=Department.choices,
-        blank=True,
-        null=True
+        max_length=2, choices=Department.choices, blank=True, null=True
     )
     phone_number = models.CharField(
-        validators=[phone_regex, ],
-        blank=True)
+        validators=[
+            phone_regex,
+        ],
+        blank=True,
+    )
     designation = models.CharField(
-        max_length=10, 
-        choices= Designation.choices,
-        help_text="e.g. Assistant Professor, HOD")
-    
-    is_full_time = models.BooleanField(
-        default=True,
-        verbose_name="Full time"
-        )
+        max_length=10,
+        choices=Designation.choices,
+        help_text="e.g. Assistant Professor, HOD",
+    )
+
+    is_full_time = models.BooleanField(default=True, verbose_name="Full time")
 
     class Meta:
-        indexes = [models.Index(fields=["id"])]
-    
+        indexes = [
+            models.Index(fields=["id"]),
+            models.Index(fields=["user_id"]),  # FK lookup optimization
+            models.Index(fields=["department"]),  # Filtering by department
+        ]
+
     def __str__(self):
         return f"{self.user.username}"
+
 
 class OTPToken(models.Model):
     """
     Class used to store the token for the password reset
     user field is kun user ko lagi token generate gareko
     """
-    id = models.UUIDField(
-        primary_key=True,
-        default= uuid.uuid4,
-        editable=False
-    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='token'
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="token"
     )
     token = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    
     def is_valid(self):
         token_lifespan = 10 * 60  # min
         now = datetime.now(timezone.utc)
@@ -124,7 +119,7 @@ class OTPToken(models.Model):
         if time_diff >= token_lifespan:
             return False
         return True
-    
+
     def set_password(self, password):
         self.user.set_password(password)
         self.user.save()
@@ -134,6 +129,3 @@ class OTPToken(models.Model):
         alphabet = string.ascii_uppercase + string.digits
         token = "".join(secrets.choice(alphabet) for _ in range(length))
         return token
-
-
-

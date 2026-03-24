@@ -273,5 +273,7 @@ futureplans.md
 .agents/
 AGENTS.md
 doc.md
+.github/
+OPTMIZATIONS_DOCUMENTATION.md
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python
