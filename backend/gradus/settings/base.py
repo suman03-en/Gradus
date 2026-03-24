@@ -118,16 +118,33 @@ REST_FRAMEWORK = {
 REST_TOKEN_LOGIN = True
 REST_SESSION_LOGIN = False
 
-# Caching Configuration (Database Cache - No Redis required)
+# Caching Configuration (safe default for container deploys)
+# NOTE:
+# - DRF throttling uses the "default" cache.
+# - Using DatabaseCache as default requires a pre-created table and can crash
+#   startup/requests when the table does not exist.
+# - LocMem avoids hard failures in Railway and similar environments.
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "gradus_cache_table",
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "gradus-default-cache",
+        "TIMEOUT": 300,
         "OPTIONS": {
             "MAX_ENTRIES": 10000,
-            "CULL_FREQUENCY": 3,  # Remove 1/3 of oldest entries when max is reached
+            "CULL_FREQUENCY": 3,
         },
-    }
+    },
+    # Optional alias for persistent DB cache if you explicitly use it later.
+    # Requires running: python manage.py createcachetable gradus_cache_table
+    "database": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "gradus_cache_table",
+        "TIMEOUT": 300,
+        "OPTIONS": {
+            "MAX_ENTRIES": 10000,
+            "CULL_FREQUENCY": 3,
+        },
+    },
 }
 
 # Cache timeout (in seconds) - 1 hour for classroom lists, 30 minutes for gradebook
