@@ -20,6 +20,11 @@ class Classroom(models.Model):
     students = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="joined_classrooms", blank=True
     )
+    teachers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="teaching_classrooms",
+        blank=True,
+    )
     is_active = models.BooleanField(
         default=True
     )  # set is_active to False when deleting
@@ -42,6 +47,18 @@ class Classroom(models.Model):
 
     def __str__(self):
         return self.name
+
+    def is_teacher(self, user):
+        if not user or not user.is_authenticated or user.is_student:
+            return False
+        return (
+            self.created_by_id == user.id or self.teachers.filter(id=user.id).exists()
+        )
+
+    def is_student_member(self, user):
+        if not user or not user.is_authenticated or not user.is_student:
+            return False
+        return self.students.filter(id=user.id).exists()
 
 
 class ClassroomTaskTypeWeightage(models.Model):

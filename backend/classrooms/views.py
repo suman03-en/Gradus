@@ -1,15 +1,19 @@
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
+from django.db import models
+from django.contrib.auth import get_user_model
 from rest_framework import generics, views
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Classroom, ClassroomTaskTypeWeightage
 from .serializers import (
     ClassroomSerializer,
     InviteCodeSerializer,
     AddStudentSerializer,
+    AddTeacherSerializer,
     ClassroomTaskTypeWeightageSerializer,
     ClassroomWeightageConfigSerializer,
 )
@@ -45,7 +49,12 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         if user.is_student:
             return user.joined_classrooms.prefetch_related("resources").all()
-        return super().get_queryset().filter(created_by=user)
+        return (
+            super()
+            .get_queryset()
+            .filter(models.Q(created_by=user) | models.Q(teachers=user))
+            .distinct()
+        )
 
     def get_serializer_context(self):
         """
@@ -60,12 +69,17 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
         return serializer.save(created_by=self.request.user)
 
 
-class ClassroomDetailView(generics.RetrieveAPIView):
+class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Classroom.objects.all()
     serializer_class = ClassroomSerializer
-    permission_classes = [permissions.IsAuthenticated, HasJoinedOrIsCreator]
+    permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
     lookup_url_kwarg = "uuid"
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated(), HasJoinedOrIsCreator()]
+        return [permissions.IsAuthenticated(), IsTeacherOrNotAllowed(), IsCreator()]
 
 
 class ClassroomJoinView(generics.GenericAPIView):
@@ -105,10 +119,10 @@ class ClassroomAddStudentView(generics.GenericAPIView):
 
     def post(self, request, **kwargs):
         classroom = self.get_classroom(kwargs["uuid"])
-        # Enforce that only the classroom creator can add students
-        if classroom.created_by != request.user:
+        # Allow owner and co-teachers to add students.
+        if not classroom.is_teacher(request.user):
             return Response(
-                {"detail": "Only the classroom creator can add students."},
+                {"detail": "Only classroom teachers can add students."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = self.get_serializer(data=request.data)
@@ -130,6 +144,51 @@ class ClassroomAddStudentView(generics.GenericAPIView):
         )
 
 
+class ClassroomAddTeacherView(generics.GenericAPIView):
+    permission_classes = (permissions.IsAuthenticated, IsTeacherOrNotAllowed)
+    serializer_class = AddTeacherSerializer
+
+    def get_classroom(self, classroom_id):
+        return get_object_or_404(Classroom, id=classroom_id, is_active=True)
+
+    def post(self, request, **kwargs):
+        classroom = self.get_classroom(kwargs["uuid"])
+        # Only classroom owner can manage co-teachers.
+        if classroom.created_by != request.user:
+            return Response(
+                {"detail": "Only the classroom owner can add co-teachers."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        username = serializer.validated_data["username"].strip()
+
+        teacher = get_object_or_404(
+            get_user_model(),
+            username__iexact=username,
+            is_student=False,
+        )
+
+        if teacher == classroom.created_by:
+            return Response(
+                {"detail": "Classroom owner is already the lead teacher."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if classroom.teachers.filter(id=teacher.id).exists():
+            return Response(
+                {"detail": "This teacher is already added to the classroom."},
+                status=status.HTTP_200_OK,
+            )
+
+        classroom.teachers.add(teacher)
+        return Response(
+            {"detail": f"Successfully added @{teacher.username} as co-teacher."},
+            status=status.HTTP_200_OK,
+        )
+
+
 class ClassroomGradebookAPIView(generics.RetrieveAPIView):
     """
     Returns an optimized gradebook payload for a classroom.
@@ -148,9 +207,7 @@ class ClassroomGradebookAPIView(generics.RetrieveAPIView):
         component_filter = request.query_params.get("component")
         if not is_valid_component_filter(component_filter):
             return Response(
-                {
-                    "detail": "Invalid component filter. Use 'theory' or 'lab'."
-                },
+                {"detail": "Invalid component filter. Use 'theory' or 'lab'."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         data = build_classroom_gradebook_payload(
@@ -212,7 +269,14 @@ class ClassroomWeightageConfigAPIView(generics.GenericAPIView):
         return [permissions.IsAuthenticated(), IsTeacherOrNotAllowed()]
 
     def get_classroom(self):
-        return get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+        classroom = get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+        if self.request.user.is_student:
+            has_access = classroom.is_student_member(self.request.user)
+        else:
+            has_access = classroom.is_teacher(self.request.user)
+        if not has_access:
+            raise PermissionDenied("You do not have access to this classroom.")
+        return classroom
 
     def get(self, request, *args, **kwargs):
         classroom = self.get_classroom()
@@ -230,10 +294,10 @@ class ClassroomWeightageConfigAPIView(generics.GenericAPIView):
     def put(self, request, *args, **kwargs):
         classroom = self.get_classroom()
 
-        if classroom.created_by != request.user:
+        if not classroom.is_teacher(request.user):
             return Response(
                 {
-                    "detail": "Only the classroom creator can update weightage configuration."
+                    "detail": "Only classroom teachers can update weightage configuration."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
