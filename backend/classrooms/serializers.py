@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import Classroom, ClassroomTaskTypeWeightage
+from .models import (
+    Classroom,
+    ClassroomTaskTypeWeightage,
+    ClassroomAttendanceWeightage,
+)
 from accounts.models import User
 from accounts.validators import validate_roll_number
 from tasks.constants import TaskType, TaskComponent
@@ -96,8 +100,63 @@ class ClassroomTaskTypeWeightageSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class ClassroomAttendanceWeightageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClassroomAttendanceWeightage
+        fields = (
+            "assessment_component",
+            "include_in_final",
+            "weightage",
+        )
+
+    def validate(self, attrs):
+        include_in_final = attrs.get("include_in_final", False)
+        weightage = attrs.get("weightage", 0)
+
+        if include_in_final and weightage <= 0:
+            raise serializers.ValidationError(
+                {
+                    "weightage": "Weightage must be greater than 0 for included attendance."
+                }
+            )
+        if not include_in_final:
+            attrs["weightage"] = 0
+        return attrs
+
+
+class AttendanceEntrySerializer(serializers.Serializer):
+    student_id = serializers.UUIDField()
+    is_present = serializers.BooleanField()
+
+
+class AttendanceSessionUpsertSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    assessment_component = serializers.ChoiceField(choices=TaskComponent.choices)
+    note = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    entries = AttendanceEntrySerializer(many=True)
+
+    def validate_entries(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                "At least one attendance entry is required."
+            )
+
+        seen = set()
+        for item in value:
+            sid = str(item["student_id"])
+            if sid in seen:
+                raise serializers.ValidationError(
+                    "Duplicate student_id in attendance entries."
+                )
+            seen.add(sid)
+        return value
+
+
 class ClassroomWeightageConfigSerializer(serializers.Serializer):
     weightages = ClassroomTaskTypeWeightageSerializer(many=True)
+    attendance_weightages = ClassroomAttendanceWeightageSerializer(
+        many=True, required=False
+    )
 
     def validate_weightages(self, value):
         seen_pairs = set()
@@ -140,3 +199,54 @@ class ClassroomWeightageConfigSerializer(serializers.Serializer):
                 )
 
         return value
+
+    def validate(self, attrs):
+        task_weightages = attrs.get("weightages", [])
+        attendance_weightages = attrs.get("attendance_weightages", [])
+
+        allowed_components = {choice for choice, _ in TaskComponent.choices}
+        attendance_seen = set()
+        attendance_totals = {
+            TaskComponent.THEORY: 0,
+            TaskComponent.LAB: 0,
+        }
+        task_totals = {
+            TaskComponent.THEORY: 0,
+            TaskComponent.LAB: 0,
+        }
+
+        for item in task_weightages:
+            if item.get("include_in_final"):
+                task_totals[item["assessment_component"]] += item["weightage"]
+
+        for item in attendance_weightages:
+            comp = item["assessment_component"]
+            if comp not in allowed_components:
+                raise serializers.ValidationError(
+                    {"attendance_weightages": f"'{comp}' is not a valid component."}
+                )
+
+            if comp in attendance_seen:
+                raise serializers.ValidationError(
+                    {
+                        "attendance_weightages": "Duplicate attendance weightage component is not allowed."
+                    }
+                )
+            attendance_seen.add(comp)
+
+            if item.get("include_in_final"):
+                attendance_totals[comp] += item["weightage"]
+
+        for comp in [TaskComponent.THEORY, TaskComponent.LAB]:
+            total_for_component = task_totals[comp] + attendance_totals[comp]
+            if total_for_component > 100:
+                raise serializers.ValidationError(
+                    {
+                        "attendance_weightages": (
+                            f"Total included weightage for '{comp}' including attendance "
+                            f"cannot exceed 100. Current total: {total_for_component}."
+                        )
+                    }
+                )
+
+        return attrs
