@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
+from django.test.utils import override_settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from classrooms.models import Classroom
@@ -79,6 +80,7 @@ class ResourcePermissionTests(APITestCase):
             content_type=ContentType.objects.get_for_model(Classroom),
             object_id=self.classroom.id,
             uploaded_by=self.teacher,
+            scan_status=Resource.SCAN_STATUS_CLEAN,
         )
         self.client.force_authenticate(user=self.teacher)
         response = self.client.get(
@@ -96,6 +98,7 @@ class ResourcePermissionTests(APITestCase):
             content_type=ContentType.objects.get_for_model(Classroom),
             object_id=self.classroom.id,
             uploaded_by=self.teacher,
+            scan_status=Resource.SCAN_STATUS_CLEAN,
         )
         self.client.force_authenticate(user=self.student)
         response = self.client.get(
@@ -113,6 +116,7 @@ class ResourcePermissionTests(APITestCase):
             content_type=ContentType.objects.get_for_model(Classroom),
             object_id=self.classroom.id,
             uploaded_by=self.teacher,
+            scan_status=Resource.SCAN_STATUS_CLEAN,
         )
         self.client.force_authenticate(user=self.teacher)
         response = self.client.delete(reverse("resource-detail", args=[resource.id]))
@@ -127,7 +131,58 @@ class ResourcePermissionTests(APITestCase):
             content_type=ContentType.objects.get_for_model(Classroom),
             object_id=self.classroom.id,
             uploaded_by=self.teacher,
+            scan_status=Resource.SCAN_STATUS_CLEAN,
         )
         self.client.force_authenticate(user=self.student)
         response = self.client.delete(reverse("resource-detail", args=[resource.id]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(RESOURCE_MAX_UPLOAD_SIZE_BYTES=8)
+    def test_create_resource_rejects_oversized_file(self):
+        self.client.force_authenticate(user=self.teacher)
+        oversized = SimpleUploadedFile(
+            "big.txt", b"123456789", content_type="text/plain"
+        )
+        payload = {
+            "content_type": "classroom",
+            "object_id": str(self.classroom.id),
+            "file": oversized,
+        }
+        response = self.client.post(
+            reverse("resource-list"), payload, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_create_resource_rejects_mime_mismatch(self):
+        self.client.force_authenticate(user=self.teacher)
+        fake_pdf = SimpleUploadedFile(
+            "notes.pdf", b"just plain text", content_type="application/pdf"
+        )
+        payload = {
+            "content_type": "classroom",
+            "object_id": str(self.classroom.id),
+            "file": fake_pdf,
+        }
+        response = self.client.post(
+            reverse("resource-list"), payload, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_create_resource_rejects_eicar_signature(self):
+        self.client.force_authenticate(user=self.teacher)
+        eicar = (
+            b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$" b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+        )
+        infected = SimpleUploadedFile("eicar.txt", eicar, content_type="text/plain")
+        payload = {
+            "content_type": "classroom",
+            "object_id": str(self.classroom.id),
+            "file": infected,
+        }
+        response = self.client.post(
+            reverse("resource-list"), payload, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)

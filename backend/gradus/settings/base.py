@@ -152,6 +152,11 @@ CACHE_TIMEOUT_CLASSROOM = 3600
 CACHE_TIMEOUT_GRADEBOOK = 1800
 CACHE_TIMEOUT_TASKS = 1800
 
+# Resource upload security defaults
+RESOURCE_MAX_UPLOAD_SIZE_BYTES = int(
+    config("RESOURCE_MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
+)
+
 # Consistent logging framework setup
 LOGGING = {
     "version": 1,
