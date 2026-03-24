@@ -8,6 +8,8 @@ from .views import (
     ClassroomAddStudentView,
     ClassroomAddTeacherView,
     ClassroomWeightageConfigAPIView,
+    ClassroomAttendanceAPIView,
+    ClassroomAttendanceBulkAPIView,
 )
 from tasks.views import TaskListCreateAPIView
 
@@ -25,5 +27,7 @@ urlpatterns = [
     path(
         "<uuid:uuid>/gradebook/weightages/", ClassroomWeightageConfigAPIView.as_view()
     ),
+    path("<uuid:uuid>/attendance/", ClassroomAttendanceAPIView.as_view()),
+    path("<uuid:uuid>/attendance/bulk/", ClassroomAttendanceBulkAPIView.as_view()),
     path("<uuid:uuid>/tasks/", TaskListCreateAPIView.as_view()),
 ]

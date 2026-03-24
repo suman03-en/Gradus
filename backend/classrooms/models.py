@@ -110,3 +110,102 @@ class ClassroomTaskTypeWeightage(models.Model):
             f"{self.classroom.name} - {self.assessment_component} - "
             f"{self.task_type} ({self.weightage}%)"
         )
+
+
+class ClassroomAttendanceWeightage(models.Model):
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="attendance_weightages",
+    )
+    assessment_component = models.CharField(
+        max_length=10,
+        choices=TaskComponent.choices,
+        db_index=True,
+    )
+    include_in_final = models.BooleanField(default=False)
+    weightage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "assessment_component"],
+                name="unique_classroom_component_attendance_weightage",
+            ),
+            models.CheckConstraint(
+                condition=Q(weightage__gte=0) & Q(weightage__lte=100),
+                name="classroom_attendance_weightage_between_0_and_100",
+            ),
+            models.CheckConstraint(
+                condition=(~Q(include_in_final=True) | Q(weightage__gt=0)),
+                name="classroom_attendance_weightage_positive_when_included",
+            ),
+        ]
+        ordering = ("assessment_component",)
+
+
+class AttendanceSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="attendance_sessions",
+        db_index=True,
+    )
+    assessment_component = models.CharField(
+        max_length=10,
+        choices=TaskComponent.choices,
+        default=TaskComponent.THEORY,
+        db_index=True,
+    )
+    date = models.DateField(db_index=True)
+    note = models.CharField(max_length=255, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_attendance_sessions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "assessment_component", "date"],
+                name="unique_classroom_component_attendance_session_date",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["classroom", "assessment_component", "date"]),
+        ]
+        ordering = ("-date",)
+
+
+class AttendanceRecord(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(
+        AttendanceSession,
+        on_delete=models.CASCADE,
+        related_name="records",
+        db_index=True,
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+        db_index=True,
+    )
+    is_present = models.BooleanField(default=False, db_index=True)
+    marked_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "student"],
+                name="unique_attendance_record_per_student_per_session",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["student", "session"]),
+            models.Index(fields=["session", "is_present"]),
+        ]

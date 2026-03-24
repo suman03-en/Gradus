@@ -28,7 +28,11 @@ def build_classroom_gradebook_payload(
     classroom, user, component_filter: Optional[str] = None
 ):
     from tasks.models import TaskRecord
-    from .models import ClassroomTaskTypeWeightage
+    from .models import (
+        ClassroomTaskTypeWeightage,
+        ClassroomAttendanceWeightage,
+        AttendanceRecord,
+    )
 
     is_teacher = classroom.is_teacher(user)
 
@@ -57,18 +61,36 @@ def build_classroom_gradebook_payload(
         if item.include_in_final and item.weightage > 0
     }
 
-    total_configured_weightage = sum(weightage_by_key.values())
+    attendance_weightage_qs = ClassroomAttendanceWeightage.objects.filter(
+        classroom=classroom
+    )
+    if component_filter:
+        attendance_weightage_qs = attendance_weightage_qs.filter(
+            assessment_component=component_filter
+        )
+
+    attendance_weightage_by_component = {
+        item.assessment_component: float(item.weightage)
+        for item in attendance_weightage_qs
+        if item.include_in_final and item.weightage > 0
+    }
+
+    total_configured_weightage = sum(weightage_by_key.values()) + sum(
+        attendance_weightage_by_component.values()
+    )
     total_configured_weightage_by_component = {
         TaskComponent.THEORY: sum(
             weight
             for (component, _task_type), weight in weightage_by_key.items()
             if component == TaskComponent.THEORY
-        ),
+        )
+        + attendance_weightage_by_component.get(TaskComponent.THEORY, 0),
         TaskComponent.LAB: sum(
             weight
             for (component, _task_type), weight in weightage_by_key.items()
             if component == TaskComponent.LAB
-        ),
+        )
+        + attendance_weightage_by_component.get(TaskComponent.LAB, 0),
     }
 
     if is_teacher:
@@ -80,6 +102,15 @@ def build_classroom_gradebook_payload(
         task__in=tasks, student__in=students
     ).select_related("task", "student")
 
+    attendance_records = AttendanceRecord.objects.filter(
+        session__classroom=classroom,
+        student__in=students,
+    ).select_related("session", "student")
+    if component_filter:
+        attendance_records = attendance_records.filter(
+            session__assessment_component=component_filter
+        )
+
     record_map = {}
     for rec in records:
         record_map[(rec.student_id, rec.task_id)] = rec.marks_obtained
@@ -90,6 +121,15 @@ def build_classroom_gradebook_payload(
         if key in weightage_by_key:
             full_marks_by_key.setdefault(key, 0)
             full_marks_by_key[key] += task.full_marks
+
+    attendance_totals = {}
+    attendance_present = {}
+    for rec in attendance_records:
+        comp = rec.session.assessment_component
+        key = (rec.student_id, comp)
+        attendance_totals[key] = attendance_totals.get(key, 0) + 1
+        if rec.is_present:
+            attendance_present[key] = attendance_present.get(key, 0) + 1
 
     students_data = []
     for st in students:
@@ -103,6 +143,10 @@ def build_classroom_gradebook_payload(
         component_totals = {
             TaskComponent.THEORY: {"obtained": 0, "full_marks": 0},
             TaskComponent.LAB: {"obtained": 0, "full_marks": 0},
+        }
+        attendance_summary = {
+            TaskComponent.THEORY: {"present": 0, "total": 0, "percentage": 0},
+            TaskComponent.LAB: {"present": 0, "total": 0, "percentage": 0},
         }
 
         for t in tasks:
@@ -127,6 +171,21 @@ def build_classroom_gradebook_payload(
             weighted_accumulator += (type_obtained_marks / type_full_marks) * weightage
             effective_weightage += weightage
 
+        for comp in [TaskComponent.THEORY, TaskComponent.LAB]:
+            present = attendance_present.get((st.id, comp), 0)
+            total = attendance_totals.get((st.id, comp), 0)
+            percentage = round((present / total) * 100, 2) if total > 0 else 0
+            attendance_summary[comp] = {
+                "present": present,
+                "total": total,
+                "percentage": percentage,
+            }
+
+            attendance_weightage = attendance_weightage_by_component.get(comp, 0)
+            if attendance_weightage > 0 and total > 0:
+                weighted_accumulator += (percentage / 100) * attendance_weightage
+                effective_weightage += attendance_weightage
+
         final_marks = 0
         if effective_weightage > 0:
             final_marks = round((weighted_accumulator / effective_weightage) * 100, 2)
@@ -141,6 +200,7 @@ def build_classroom_gradebook_payload(
                 "total_full_marks": total_full_marks,
                 "final_marks": final_marks,
                 "component_totals": component_totals,
+                "attendance": attendance_summary,
             }
         )
 
@@ -157,6 +217,14 @@ def build_classroom_gradebook_payload(
             }
             for (assessment_component, task_type), weightage in weightage_by_key.items()
         ],
+        "attendance_weightage_config": [
+            {
+                "assessment_component": component,
+                "include_in_final": True,
+                "weightage": weightage,
+            }
+            for component, weightage in attendance_weightage_by_component.items()
+        ],
         "total_configured_weightage": total_configured_weightage,
         "total_configured_weightage_by_component": total_configured_weightage_by_component,
         "students": students_data,
@@ -165,7 +233,7 @@ def build_classroom_gradebook_payload(
 
 def build_weightage_config_payload(classroom):
     from tasks.constants import TaskType
-    from .models import ClassroomTaskTypeWeightage
+    from .models import ClassroomTaskTypeWeightage, ClassroomAttendanceWeightage
 
     existing = {
         (item.assessment_component, item.task_type): item
@@ -188,10 +256,36 @@ def build_weightage_config_payload(classroom):
     total_weightage = sum(
         row["weightage"] for row in payload if row["include_in_final"]
     )
+
+    attendance_existing = {
+        item.assessment_component: item
+        for item in ClassroomAttendanceWeightage.objects.filter(classroom=classroom)
+    }
+    attendance_payload = []
+    for assessment_component, _ in TaskComponent.choices:
+        item = attendance_existing.get(assessment_component)
+        attendance_payload.append(
+            {
+                "assessment_component": assessment_component,
+                "include_in_final": item.include_in_final if item else False,
+                "weightage": float(item.weightage) if item else 0,
+            }
+        )
+
+    attendance_total_weightage = sum(
+        row["weightage"] for row in attendance_payload if row["include_in_final"]
+    )
+
     total_weightage_by_component = {
         TaskComponent.THEORY: sum(
             row["weightage"]
             for row in payload
+            if row["include_in_final"]
+            and row["assessment_component"] == TaskComponent.THEORY
+        )
+        + sum(
+            row["weightage"]
+            for row in attendance_payload
             if row["include_in_final"]
             and row["assessment_component"] == TaskComponent.THEORY
         ),
@@ -200,12 +294,19 @@ def build_weightage_config_payload(classroom):
             for row in payload
             if row["include_in_final"]
             and row["assessment_component"] == TaskComponent.LAB
+        )
+        + sum(
+            row["weightage"]
+            for row in attendance_payload
+            if row["include_in_final"]
+            and row["assessment_component"] == TaskComponent.LAB
         ),
     }
 
     return {
         "weightages": payload,
-        "total_configured_weightage": total_weightage,
+        "attendance_weightages": attendance_payload,
+        "total_configured_weightage": total_weightage + attendance_total_weightage,
         "total_configured_weightage_by_component": total_weightage_by_component,
     }
 
@@ -219,6 +320,21 @@ def upsert_classroom_weightages(classroom, weightages_data):
                 classroom=classroom,
                 assessment_component=item["assessment_component"],
                 task_type=item["task_type"],
+                defaults={
+                    "include_in_final": item["include_in_final"],
+                    "weightage": item["weightage"],
+                },
+            )
+
+
+def upsert_classroom_attendance_weightages(classroom, attendance_weightages_data):
+    from .models import ClassroomAttendanceWeightage
+
+    with transaction.atomic():
+        for item in attendance_weightages_data:
+            ClassroomAttendanceWeightage.objects.update_or_create(
+                classroom=classroom,
+                assessment_component=item["assessment_component"],
                 defaults={
                     "include_in_final": item["include_in_final"],
                     "weightage": item["weightage"],

@@ -59,3 +59,87 @@ class ClassroomMultiTeacherTests(APITestCase):
         self.assertTrue(
             self.classroom.students.filter(id=self.student_user.id).exists()
         )
+
+
+class ClassroomAttendanceTests(APITestCase):
+    def setUp(self):
+        self.teacher = User.objects.create_user(
+            username="attendance_teacher", password="password", is_student=False
+        )
+        self.student_a = User.objects.create_user(
+            username="student_a", password="password", is_student=True
+        )
+        self.student_b = User.objects.create_user(
+            username="student_b", password="password", is_student=True
+        )
+
+        StudentProfile.objects.create(
+            user=self.student_a,
+            roll_no="THA079BEI111",
+            department="CT",
+        )
+        StudentProfile.objects.create(
+            user=self.student_b,
+            roll_no="THA079BEI112",
+            department="CT",
+        )
+
+        self.classroom = Classroom.objects.create(
+            name="Attendance Classroom",
+            description="Attendance testing",
+            created_by=self.teacher,
+        )
+        self.classroom.students.add(self.student_a, self.student_b)
+
+    def test_teacher_can_upsert_attendance(self):
+        self.client.force_authenticate(user=self.teacher)
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/"
+        payload = {
+            "date": "2026-03-24",
+            "assessment_component": "theory",
+            "entries": [
+                {"student_id": str(self.student_a.id), "is_present": True},
+                {"student_id": str(self.student_b.id), "is_present": False},
+            ],
+        }
+
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_student_cannot_upsert_attendance(self):
+        self.client.force_authenticate(user=self.student_a)
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/"
+        payload = {
+            "date": "2026-03-24",
+            "assessment_component": "theory",
+            "entries": [{"student_id": str(self.student_a.id), "is_present": True}],
+        }
+
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_student_sees_only_own_attendance_summary(self):
+        self.client.force_authenticate(user=self.teacher)
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/"
+        self.client.post(
+            url,
+            {
+                "date": "2026-03-24",
+                "assessment_component": "theory",
+                "entries": [
+                    {"student_id": str(self.student_a.id), "is_present": True},
+                    {"student_id": str(self.student_b.id), "is_present": False},
+                ],
+            },
+            format="json",
+        )
+
+        self.client.force_authenticate(user=self.student_a)
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_teacher"])
+        self.assertEqual(len(response.data["attendance_summary"]), 1)
+        self.assertEqual(
+            response.data["attendance_summary"][0]["student_id"], str(self.student_a.id)
+        )

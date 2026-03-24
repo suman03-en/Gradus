@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.db import models
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework import generics, views
 from rest_framework.response import Response
@@ -8,14 +9,23 @@ from rest_framework import status
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
-from .models import Classroom, ClassroomTaskTypeWeightage
+from .models import (
+    Classroom,
+    ClassroomTaskTypeWeightage,
+    AttendanceSession,
+    AttendanceRecord,
+    ClassroomAttendanceWeightage,
+)
 from .serializers import (
     ClassroomSerializer,
     InviteCodeSerializer,
     AddStudentSerializer,
     AddTeacherSerializer,
     ClassroomTaskTypeWeightageSerializer,
+    ClassroomAttendanceWeightageSerializer,
     ClassroomWeightageConfigSerializer,
+    AttendanceSessionUpsertSerializer,
+    AttendanceBulkUpsertSerializer,
 )
 from .permissions import HasJoinedOrIsCreator
 from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly, IsCreator
@@ -26,6 +36,7 @@ from .utils import (
     build_classroom_gradebook_payload,
     build_weightage_config_payload,
     upsert_classroom_weightages,
+    upsert_classroom_attendance_weightages,
     build_gradebook_excel_file,
 )
 
@@ -323,21 +334,223 @@ class ClassroomWeightageConfigAPIView(generics.GenericAPIView):
             classroom=classroom,
             weightages_data=serializer.validated_data["weightages"],
         )
+        upsert_classroom_attendance_weightages(
+            classroom=classroom,
+            attendance_weightages_data=serializer.validated_data.get(
+                "attendance_weightages", []
+            ),
+        )
 
         output = ClassroomTaskTypeWeightage.objects.filter(classroom=classroom)
+        attendance_output = ClassroomAttendanceWeightage.objects.filter(
+            classroom=classroom
+        )
         response_data = ClassroomTaskTypeWeightageSerializer(output, many=True).data
+        attendance_response_data = ClassroomAttendanceWeightageSerializer(
+            attendance_output, many=True
+        ).data
         weightage_summary = build_weightage_config_payload(classroom)
 
         return Response(
             {
                 "classroom": {"id": str(classroom.id), "name": classroom.name},
                 "weightages": response_data,
+                "attendance_weightages": attendance_response_data,
                 "total_configured_weightage": weightage_summary[
                     "total_configured_weightage"
                 ],
                 "total_configured_weightage_by_component": weightage_summary[
                     "total_configured_weightage_by_component"
                 ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ClassroomAttendanceAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AttendanceSessionUpsertSerializer
+
+    def get_classroom(self):
+        classroom = get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+        if self.request.user.is_student:
+            has_access = classroom.is_student_member(self.request.user)
+        else:
+            has_access = classroom.is_teacher(self.request.user)
+        if not has_access:
+            raise PermissionDenied("You do not have access to this classroom.")
+        return classroom
+
+    def _ensure_teacher(self, classroom):
+        if not classroom.is_teacher(self.request.user):
+            raise PermissionDenied("Only classroom teachers can manage attendance.")
+
+    def _upsert_one_session(self, classroom, payload):
+        assessment_component = payload["assessment_component"]
+        session_date = payload["date"]
+        note = payload.get("note", "")
+        entries = payload["entries"]
+
+        classroom_student_ids = set(classroom.students.values_list("id", flat=True))
+        incoming_student_ids = {entry["student_id"] for entry in entries}
+
+        invalid_student_ids = incoming_student_ids - classroom_student_ids
+        if invalid_student_ids:
+            raise PermissionDenied(
+                "Attendance includes students not enrolled in this classroom."
+            )
+
+        session, _ = AttendanceSession.objects.update_or_create(
+            classroom=classroom,
+            assessment_component=assessment_component,
+            date=session_date,
+            defaults={
+                "note": note,
+                "created_by": self.request.user,
+            },
+        )
+
+        for entry in entries:
+            AttendanceRecord.objects.update_or_create(
+                session=session,
+                student_id=entry["student_id"],
+                defaults={"is_present": entry["is_present"]},
+            )
+
+        return session
+
+    def get(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+        is_teacher = classroom.is_teacher(request.user)
+
+        sessions_qs = AttendanceSession.objects.filter(classroom=classroom).order_by(
+            "-date", "assessment_component"
+        )
+        records_qs = AttendanceRecord.objects.filter(
+            session__classroom=classroom
+        ).select_related("session", "student", "student__student_profile")
+
+        if not is_teacher:
+            records_qs = records_qs.filter(student=request.user)
+
+        summary = {}
+        for rec in records_qs:
+            key = str(rec.student_id)
+            if key not in summary:
+                roll_no = None
+                profile = getattr(rec.student, "student_profile", None)
+                if profile:
+                    roll_no = profile.roll_no
+                summary[key] = {
+                    "student_id": key,
+                    "username": rec.student.username,
+                    "roll_no": roll_no or rec.student.username,
+                    "present": 0,
+                    "total": 0,
+                    "percentage": 0,
+                }
+            summary[key]["total"] += 1
+            if rec.is_present:
+                summary[key]["present"] += 1
+
+        for item in summary.values():
+            if item["total"] > 0:
+                item["percentage"] = round((item["present"] / item["total"]) * 100, 2)
+
+        session_records_map = {}
+        for rec in records_qs:
+            session_key = str(rec.session_id)
+            if session_key not in session_records_map:
+                session_records_map[session_key] = []
+            session_records_map[session_key].append(
+                {
+                    "student_id": str(rec.student_id),
+                    "username": rec.student.username,
+                    "roll_no": (
+                        rec.student.student_profile.roll_no
+                        if hasattr(rec.student, "student_profile")
+                        and rec.student.student_profile
+                        and rec.student.student_profile.roll_no
+                        else rec.student.username
+                    ),
+                    "is_present": rec.is_present,
+                }
+            )
+
+        sessions_payload = []
+        for session in sessions_qs:
+            session_key = str(session.id)
+            records = session_records_map.get(session_key, [])
+            if not is_teacher and not records:
+                continue
+            sessions_payload.append(
+                {
+                    "id": session_key,
+                    "date": session.date,
+                    "assessment_component": session.assessment_component,
+                    "note": session.note,
+                    "records": records,
+                }
+            )
+
+        response_summary = list(summary.values())
+        if not is_teacher:
+            response_summary = response_summary[:1]
+
+        return Response(
+            {
+                "classroom": {"id": str(classroom.id), "name": classroom.name},
+                "is_teacher": is_teacher,
+                "attendance_summary": response_summary,
+                "sessions": sessions_payload,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+        self._ensure_teacher(classroom)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        session = self._upsert_one_session(classroom, serializer.validated_data)
+
+        return Response(
+            {
+                "detail": "Attendance saved successfully.",
+                "session_id": str(session.id),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ClassroomAttendanceBulkAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AttendanceBulkUpsertSerializer
+
+    def get_classroom(self):
+        classroom = get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+        if not classroom.is_teacher(self.request.user):
+            raise PermissionDenied("Only classroom teachers can manage attendance.")
+        return classroom
+
+    def post(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        saved = []
+        with transaction.atomic():
+            helper = ClassroomAttendanceAPIView()
+            helper.request = request
+            for session_payload in serializer.validated_data["sessions"]:
+                session = helper._upsert_one_session(classroom, session_payload)
+                saved.append(str(session.id))
+
+        return Response(
+            {
+                "detail": "Bulk attendance saved successfully.",
+                "saved_sessions": saved,
             },
             status=status.HTTP_200_OK,
         )
