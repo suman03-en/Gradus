@@ -27,7 +27,6 @@ from .serializers import (
     ClassroomAttendanceWeightageSerializer,
     ClassroomWeightageConfigSerializer,
     AttendanceSessionUpsertSerializer,
-    AttendanceBulkUpsertSerializer,
 )
 from .permissions import HasJoinedOrIsCreator
 from accounts.permissions import IsTeacherOrNotAllowed, IsTeacherOrReadOnly, IsCreator
@@ -521,38 +520,6 @@ class ClassroomAttendanceAPIView(generics.GenericAPIView):
             {
                 "detail": "Attendance saved successfully.",
                 "session_id": str(session.id),
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-class ClassroomAttendanceBulkAPIView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = AttendanceBulkUpsertSerializer
-
-    def get_classroom(self):
-        classroom = get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
-        if not classroom.is_teacher(self.request.user):
-            raise PermissionDenied("Only classroom teachers can manage attendance.")
-        return classroom
-
-    def post(self, request, *args, **kwargs):
-        classroom = self.get_classroom()
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        saved = []
-        with transaction.atomic():
-            helper = ClassroomAttendanceAPIView()
-            helper.request = request
-            for session_payload in serializer.validated_data["sessions"]:
-                session = helper._upsert_one_session(classroom, session_payload)
-                saved.append(str(session.id))
-
-        return Response(
-            {
-                "detail": "Bulk attendance saved successfully.",
-                "saved_sessions": saved,
             },
             status=status.HTTP_200_OK,
         )

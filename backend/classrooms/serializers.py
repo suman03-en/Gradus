@@ -152,17 +152,6 @@ class AttendanceSessionUpsertSerializer(serializers.Serializer):
         return value
 
 
-class AttendanceBulkUpsertSerializer(serializers.Serializer):
-    sessions = AttendanceSessionUpsertSerializer(many=True)
-
-    def validate_sessions(self, value):
-        if not value:
-            raise serializers.ValidationError(
-                "At least one attendance session is required."
-            )
-        return value
-
-
 class ClassroomWeightageConfigSerializer(serializers.Serializer):
     weightages = ClassroomTaskTypeWeightageSerializer(many=True)
     attendance_weightages = ClassroomAttendanceWeightageSerializer(
