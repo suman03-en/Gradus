@@ -2,6 +2,8 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.db import models
 from django.db import transaction
+import csv
+import io
 from django.contrib.auth import get_user_model
 from rest_framework import generics, views
 from rest_framework.response import Response
@@ -550,6 +552,161 @@ class ClassroomAttendanceBulkAPIView(generics.GenericAPIView):
         return Response(
             {
                 "detail": "Bulk attendance saved successfully.",
+                "saved_sessions": saved,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ClassroomAttendanceBulkCSVUploadAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_classroom(self):
+        classroom = get_object_or_404(Classroom, id=self.kwargs["uuid"], is_active=True)
+        if not classroom.is_teacher(self.request.user):
+            raise PermissionDenied("Only classroom teachers can upload attendance CSV.")
+        return classroom
+
+    def post(self, request, *args, **kwargs):
+        classroom = self.get_classroom()
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "CSV file is required in 'file' field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            decoded = io.TextIOWrapper(file.file, encoding="utf-8")
+            reader = csv.DictReader(decoded)
+        except Exception:
+            return Response(
+                {"detail": "Unable to read CSV file. Ensure UTF-8 CSV format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        required_columns = {"date", "assessment_component", "roll_no", "is_present"}
+        incoming_columns = set(reader.fieldnames or [])
+        missing = sorted(required_columns - incoming_columns)
+        if missing:
+            return Response(
+                {
+                    "detail": (
+                        "CSV missing required columns: " + ", ".join(missing) + ". "
+                        "Required: date, assessment_component, roll_no, is_present. "
+                        "Optional: note"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enrolled_profiles = StudentProfile.objects.filter(
+            user__in=classroom.students.all()
+        ).select_related("user")
+        student_by_roll = {
+            (profile.roll_no or "").strip().upper(): profile.user_id
+            for profile in enrolled_profiles
+            if profile.roll_no
+        }
+
+        grouped = {}
+        row_errors = []
+
+        def parse_bool(raw):
+            val = (raw or "").strip().lower()
+            if val in {"1", "true", "t", "yes", "y", "present", "p"}:
+                return True
+            if val in {"0", "false", "f", "no", "n", "absent", "a"}:
+                return False
+            return None
+
+        for idx, row in enumerate(reader, start=2):
+            raw_date = (row.get("date") or "").strip()
+            raw_component = (row.get("assessment_component") or "").strip().lower()
+            raw_roll = (row.get("roll_no") or "").strip().upper()
+            raw_present = row.get("is_present")
+            raw_note = (row.get("note") or "").strip()
+
+            if not raw_date or not raw_component or not raw_roll:
+                row_errors.append(
+                    f"Row {idx}: date, assessment_component and roll_no are required."
+                )
+                continue
+
+            if raw_component not in {TaskComponent.THEORY, TaskComponent.LAB}:
+                row_errors.append(
+                    f"Row {idx}: invalid assessment_component '{raw_component}'."
+                )
+                continue
+
+            present_val = parse_bool(raw_present)
+            if present_val is None:
+                row_errors.append(
+                    f"Row {idx}: invalid is_present '{raw_present}'. Use true/false, 1/0, present/absent."
+                )
+                continue
+
+            student_id = student_by_roll.get(raw_roll)
+            if not student_id:
+                row_errors.append(
+                    f"Row {idx}: roll_no '{raw_roll}' not found in this classroom."
+                )
+                continue
+
+            key = (raw_date, raw_component)
+            grouped.setdefault(
+                key,
+                {
+                    "date": raw_date,
+                    "assessment_component": raw_component,
+                    "note": raw_note,
+                    "entries": {},
+                },
+            )
+            if raw_note and not grouped[key]["note"]:
+                grouped[key]["note"] = raw_note
+            grouped[key]["entries"][student_id] = present_val
+
+        if row_errors:
+            return Response(
+                {
+                    "detail": "CSV validation failed.",
+                    "errors": row_errors[:20],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not grouped:
+            return Response(
+                {"detail": "No valid attendance rows found in CSV."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        saved = []
+        with transaction.atomic():
+            helper = ClassroomAttendanceAPIView()
+            helper.request = request
+            for (_date, _component), payload in grouped.items():
+                serializer = AttendanceSessionUpsertSerializer(
+                    data={
+                        "date": payload["date"],
+                        "assessment_component": payload["assessment_component"],
+                        "note": payload["note"],
+                        "entries": [
+                            {"student_id": str(student_id), "is_present": is_present}
+                            for student_id, is_present in payload["entries"].items()
+                        ],
+                    }
+                )
+                serializer.is_valid(raise_exception=True)
+                session = helper._upsert_one_session(
+                    classroom, serializer.validated_data
+                )
+                saved.append(str(session.id))
+
+        return Response(
+            {
+                "detail": "CSV attendance uploaded successfully.",
                 "saved_sessions": saved,
             },
             status=status.HTTP_200_OK,

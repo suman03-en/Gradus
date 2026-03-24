@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from accounts.models import StudentProfile, User
 from .models import Classroom
@@ -143,3 +144,34 @@ class ClassroomAttendanceTests(APITestCase):
         self.assertEqual(
             response.data["attendance_summary"][0]["student_id"], str(self.student_a.id)
         )
+
+    def test_teacher_can_upload_attendance_csv(self):
+        self.client.force_authenticate(user=self.teacher)
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/bulk/csv/"
+
+        content = (
+            "date,assessment_component,roll_no,is_present,note\n"
+            "2026-03-20,theory,THA079BEI111,1,Week 1\n"
+            "2026-03-20,theory,THA079BEI112,0,Week 1\n"
+        )
+        upload = SimpleUploadedFile(
+            "attendance.csv", content.encode("utf-8"), content_type="text/csv"
+        )
+
+        response = self.client.post(url, {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_student_cannot_upload_attendance_csv(self):
+        self.client.force_authenticate(user=self.student_a)
+        url = f"/api/v1/classrooms/{self.classroom.id}/attendance/bulk/csv/"
+
+        content = (
+            "date,assessment_component,roll_no,is_present\n"
+            "2026-03-20,theory,THA079BEI111,1\n"
+        )
+        upload = SimpleUploadedFile(
+            "attendance.csv", content.encode("utf-8"), content_type="text/csv"
+        )
+
+        response = self.client.post(url, {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
